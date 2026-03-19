@@ -1,9 +1,10 @@
 "use client";
 
 import CartModal from "@/components/CartModal";
-import CartSummaryBar from "@/components/CartSummaryBar";
 import Loader from "@/components/Loader";
 import MenuCard from "@/components/MenuCard";
+import PayBillModal from "@/components/PayBillModal";
+import ViewOrderModal from "@/components/ViewOrderModal";
 import { useCart } from "@/context/CartContext";
 import { categoriesService, menuService } from "@/libs/firestore";
 import { useSearchParams } from "next/navigation";
@@ -15,7 +16,7 @@ function MenuPage() {
   const rawId = searchParams.get("restaurantId");
   const rawTable = searchParams.get("tableno");
 
-  const { setMenuItems, setRestaurantId, setTableNumber } = useCart();
+  const { setMenuItems, setRestaurantId, setTableNumber, initSession } = useCart();
 
   const [status, setStatus] = useState("loading"); // 'loading' | 'ready' | 'error'
   const [errorMsg, setErrorMsg] = useState("");
@@ -32,6 +33,7 @@ function MenuPage() {
 
     setRestaurantId(rawId);
     setTableNumber(rawTable);
+    initSession(); // generate or restore sessionId + OTP
 
     const load = async () => {
       try {
@@ -41,9 +43,7 @@ function MenuPage() {
         ]);
 
         if (items.length === 0 && cats.length === 0) {
-          setErrorMsg(
-            "No menu found for this restaurant. Please contact staff.",
-          );
+          setErrorMsg("No menu found for this restaurant. Please contact staff.");
           setStatus("error");
           return;
         }
@@ -59,7 +59,7 @@ function MenuPage() {
     };
 
     load();
-  }, [rawId, rawTable, setMenuItems, setRestaurantId, setTableNumber]);
+  }, [rawId, rawTable, setMenuItems, setRestaurantId, setTableNumber, initSession]);
 
   if (status === "loading") {
     return (
@@ -73,9 +73,7 @@ function MenuPage() {
   if (status === "error") {
     return (
       <div className="max-w-md mx-auto min-h-svh relative pb-28 bg-[#fffdfa] bg-food-pattern bg-repeat">
-        {/* Global Background Fade */}
         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/0 via-white/30 to-white/80 z-0" />
-
         <div className="relative flex flex-col items-center justify-center min-h-svh px-8 text-center z-10">
           <span className="text-5xl mb-4">😕</span>
           <h1 className="text-xl font-semibold text-gray-800 mb-2">Oops!</h1>
@@ -103,8 +101,10 @@ function MenuContent({
   cartOpen,
   setCartOpen,
 }) {
-  const { cart } = useCart();
+  const { cart, itemCount, grandTotal, placedOrders, otp, tableNumber } = useCart();
   const [vegOnly, setVegOnly] = useState(false);
+  const [viewOrderOpen, setViewOrderOpen] = useState(false);
+  const [payBillOpen, setPayBillOpen] = useState(false);
 
   // Filter logic
   let filteredItems =
@@ -116,7 +116,11 @@ function MenuContent({
     filteredItems = filteredItems.filter((i) => i.isVeg);
   }
 
-  const selectedCount = cart.filter((i) => i.quantity > 0).length;
+  const hasNewItems = itemCount > 0;
+  const hasPreviousOrders = placedOrders.length > 0;
+
+  // Running total across all placed orders
+  const placedTotal = placedOrders.reduce((acc, o) => acc + (o.grandTotal || 0), 0);
 
   return (
     <div className="max-w-md mx-auto min-h-svh relative pb-28 bg-[#fffdfa] bg-food-pattern bg-repeat">
@@ -137,14 +141,10 @@ function MenuContent({
               </h1>
             </div>
 
-            {/* Table Info */}
+            {/* Table + Session Info */}
             <div className="text-right text-xs text-gray-800 font-medium">
-              <p>
-                Table No. <span className="font-bold text-sm">21</span>
-              </p>
-              <p>
-                Sesh. <span className="font-bold text-sm">1234</span>
-              </p>
+              <p>Table No. <span className="font-bold text-sm">{tableNumber ?? "—"}</span></p>
+              <p>Sesh. <span className="font-bold text-sm">{otp ?? "—"}</span></p>
             </div>
           </div>
 
@@ -164,41 +164,23 @@ function MenuContent({
                   </option>
                 ))}
               </select>
-              {/* Custom select arrow matching brand color */}
               <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#059669]">
-                <svg
-                  width="12"
-                  height="8"
-                  viewBox="0 0 12 8"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M10.59 0.589966L6 5.16997L1.41 0.589966L0 1.99997L6 7.99997L12 1.99997L10.59 0.589966Z"
-                    fill="currentColor"
-                  />
+                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10.59 0.589966L6 5.16997L1.41 0.589966L0 1.99997L6 7.99997L12 1.99997L10.59 0.589966Z" fill="currentColor" />
                 </svg>
               </div>
             </div>
 
             {/* Veg Only Toggle */}
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs font-semibold text-gray-700">
-                Veg only
-              </span>
+              <span className="text-xs font-semibold text-gray-700">Veg only</span>
               <button
                 type="button"
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  vegOnly ? "bg-[#059669]" : "bg-gray-200"
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${vegOnly ? "bg-[#059669]" : "bg-gray-200"}`}
                 onClick={() => setVegOnly(!vegOnly)}
               >
                 <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                    vegOnly
-                      ? "translate-x-5 shadow-sm"
-                      : "translate-x-0.5 shadow-sm border border-gray-300"
-                  }`}
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${vegOnly ? "translate-x-5 shadow-sm" : "translate-x-0.5 shadow-sm border border-gray-300"}`}
                 />
               </button>
             </div>
@@ -209,13 +191,8 @@ function MenuContent({
       {/* Title & Selected count */}
       <div className="px-5 pt-4 pb-2 flex items-center justify-between">
         <h2 className="text-[15px] font-bold text-black">
-          Select one or more dishes{selectedCount === 0 && " to order"}
+          Select one or more dishes{itemCount === 0 && " to order"}
         </h2>
-        {/* {selectedCount > 0 && (
-          <span className="text-sm font-semibold text-[#0ea5e9]">
-            {selectedCount} selected
-          </span>
-        )} */}
       </div>
 
       {/* Menu grid */}
@@ -234,11 +211,74 @@ function MenuContent({
         )}
       </div>
 
-      {/* Cart sticky bar */}
-      <CartSummaryBar onViewCart={() => setCartOpen(true)} />
+      {/* ── Dynamic Bottom Action Bar ─────────────────────────────────────────
+          State 1: hasNewItems && !hasPreviousOrders → standard cart summary
+          State 2: hasNewItems && hasPreviousOrders  → "Add To My Order →"
+          State 3: !hasNewItems && hasPreviousOrders → "View My Order" + "Pay Bill →"
+          State 4: nothing                           → hidden
+      ──────────────────────────────────────────────────────────────────────── */}
 
-      {/* Cart modal */}
+      {/* State 1 – fresh cart, no prior orders */}
+      {hasNewItems && !hasPreviousOrders && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white border-t border-gray-100 px-5 py-3 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-gray-500 mb-0.5">Total</span>
+            <span className="text-base font-bold text-gray-900 tracking-tight">
+              ₹ {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+            </span>
+          </div>
+          <button
+            onClick={() => setCartOpen(true)}
+            className="bg-[#059669] text-white font-semibold text-sm rounded-[10px] px-5 py-2.5 flex items-center gap-2 active:scale-95 transition-transform"
+          >
+            View Order
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* State 2 – new items added on top of existing order */}
+      {hasNewItems && hasPreviousOrders && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white border-t border-gray-100 px-5 py-3 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold text-gray-500 mb-0.5">New items</span>
+            <span className="text-base font-bold text-gray-900 tracking-tight">
+              ₹ {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+            </span>
+          </div>
+          <button
+            onClick={() => setCartOpen(true)}
+            className="bg-[#059669] text-white font-semibold text-sm rounded-[10px] px-5 py-2.5 flex items-center gap-2 active:scale-95 transition-transform"
+          >
+            Add To My Order →
+          </button>
+        </div>
+      )}
+
+      {/* State 3 – no new items, but has placed orders */}
+      {!hasNewItems && hasPreviousOrders && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto bg-white border-t border-gray-100 px-5 py-3 shadow-[0_-4px_10px_rgba(0,0,0,0.02)] flex items-center justify-between gap-3">
+          <button
+            onClick={() => setViewOrderOpen(true)}
+            className="flex-1 border border-[#059669] text-[#059669] font-semibold text-sm rounded-[10px] px-4 py-2.5 active:scale-95 transition-transform"
+          >
+            View My Order
+          </button>
+          <button
+            onClick={() => setPayBillOpen(true)}
+            className="flex-1 bg-[#059669] text-white font-semibold text-sm rounded-[10px] px-4 py-2.5 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            Pay Bill →
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
       {cartOpen && <CartModal onClose={() => setCartOpen(false)} />}
+      {viewOrderOpen && <ViewOrderModal onClose={() => setViewOrderOpen(false)} />}
+      {payBillOpen && <PayBillModal onClose={() => setPayBillOpen(false)} />}
     </div>
   );
 }

@@ -9,6 +9,16 @@ function FeedbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const otp = searchParams.get("otp") || "---";
+  const restaurantId = searchParams.get("restaurantId");
+  const tableno = searchParams.get("tableno");
+
+  const handleGoToMenu = () => {
+    if (restaurantId && tableno) {
+      router.push(`/?restaurantId=${restaurantId}&tableno=${tableno}`);
+    } else {
+      router.push("/");
+    }
+  };
 
   return (
     <div className="max-w-md mx-auto min-h-svh flex flex-col relative bg-[#fffdfa] bg-food-pattern bg-repeat">
@@ -30,9 +40,7 @@ function FeedbackContent() {
         </div>
 
         {/* OTP Text */}
-        <h1 className="text-[60px] font-bold text-black leading-none tracking-tight">
-          {otp}
-        </h1>
+        <h1 className="text-[60px] font-bold text-black leading-none tracking-tight">{otp}</h1>
 
         {/* Status */}
         <h2 className="text-[17px] font-bold text-black mt-6">Order Placed</h2>
@@ -45,7 +53,7 @@ function FeedbackContent() {
         {/* Bottom Button */}
         <div className="mt-auto pt-10 w-full">
           <button
-            onClick={() => router.push("/")}
+            onClick={handleGoToMenu}
             className="w-full bg-[#059669] text-white font-semibold text-[15px] py-4 rounded-xl active:scale-95 transition-transform shadow-md"
           >
             Go To Menu

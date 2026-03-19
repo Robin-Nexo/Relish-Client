@@ -1,8 +1,12 @@
 import { db } from './firebase';
 import {
   collection,
+  doc,
   addDoc,
+  setDoc,
+  getDoc,
   getDocs,
+  updateDoc,
   query,
   where,
   orderBy,
@@ -12,6 +16,9 @@ import {
 // ─── Multi-tenant helpers ──────────────────────────────────────────────────────
 const tenantCol = (restaurantId, path) =>
   collection(db, `restaurants/${restaurantId}/${path}`);
+
+const tenantDoc = (restaurantId, ...segments) =>
+  doc(db, `restaurants/${restaurantId}`, ...segments);
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
 export const tablesService = {
@@ -57,7 +64,7 @@ export const categoriesService = {
     try {
       const q = query(tenantCol(restaurantId, 'categories'), orderBy('name', 'asc'));
       const snap = await getDocs(q);
-      return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
       console.error('Error fetching categories:', e);
       return [];
@@ -77,7 +84,7 @@ export const menuService = {
     try {
       const q = query(tenantCol(restaurantId, 'menuItems'), orderBy('name', 'asc'));
       const snap = await getDocs(q);
-      return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
       console.error('Error fetching menu items:', e);
       return [];
@@ -85,21 +92,109 @@ export const menuService = {
   },
 };
 
-// ─── Orders ───────────────────────────────────────────────────────────────────
-export const ordersService = {
+// ─── Sessions ────────────────────────────────────────────────────────────────
+/**
+ * Session Document schema:
+ *   restaurants/{restaurantId}/sessions/{sessionId}
+ *   {
+ *     restaurantId, tableNumber, otp, status: 'OPEN' | 'CLOSED',
+ *     isActive: true | false,   ← future-feature hook: allows a friend to search
+ *                                   for this session by OTP to join it
+ *     customerName, customerPhone, createdAt, closedAt?
+ *   }
+ *
+ * Order Sub-collection:
+ *   restaurants/{restaurantId}/sessions/{sessionId}/orders/{orderId}
+ *   { items, subtotal, tax, grandTotal, createdAt }
+ */
+export const sessionService = {
   /**
-   * Place a new order.
+   * Place a new order batch within an existing or new session.
+   * Creates the session document on first call; appends to orders sub-collection on subsequent calls.
+   *
    * @param {string} restaurantId
-   * @param {object} orderData
-   * @returns {Promise<string>} The new order document ID
+   * @param {string} sessionId     – UUID generated on client
+   * @param {object} sessionMeta   – { tableNumber, otp, customerName, customerPhone }
+   * @param {object} orderData     – { items, subtotal, tax, grandTotal }
+   * @returns {Promise<string>}     – the new order document ID
    */
-  async placeOrder(restaurantId, orderData) {
-    if (!restaurantId) throw new Error('restaurantId is required');
-    const docRef = await addDoc(tenantCol(restaurantId, 'orders'), {
+  async placeOrder(restaurantId, sessionId, sessionMeta, orderData) {
+    if (!restaurantId || !sessionId) throw new Error('restaurantId and sessionId are required');
+
+    const sessionRef = doc(db, `restaurants/${restaurantId}/sessions/${sessionId}`);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+      // First order of this session — create the session document
+      await setDoc(sessionRef, {
+        restaurantId,
+        tableNumber: sessionMeta.tableNumber,
+        otp: sessionMeta.otp,
+        customerName: sessionMeta.customerName,
+        customerPhone: sessionMeta.customerPhone,
+        status: 'OPEN',
+        /**
+         * isActive flag — FUTURE FEATURE HOOK
+         * When a friend wants to join the same session in the future,
+         * they will enter the OTP manually. The app will query:
+         *   sessions where otp == enteredOtp AND isActive == true AND restaurantId == X
+         * and link them to this session directly.
+         * For now this is simply set to true and flipped to false on paySessionBill().
+         */
+        isActive: true,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    // Append a new order to the orders sub-collection
+    const ordersCol = collection(db, `restaurants/${restaurantId}/sessions/${sessionId}/orders`);
+    const orderRef = await addDoc(ordersCol, {
       ...orderData,
+      status: 'OPEN',
       createdAt: serverTimestamp(),
     });
-    return docRef.id;
+
+    return orderRef.id;
+  },
+
+  /**
+   * Fetch all orders placed in a session.
+   * @param {string} restaurantId
+   * @param {string} sessionId
+   * @returns {Promise<Array>}
+   */
+  async getSessionOrders(restaurantId, sessionId) {
+    if (!restaurantId || !sessionId) return [];
+    try {
+      const ordersCol = collection(
+        db,
+        `restaurants/${restaurantId}/sessions/${sessionId}/orders`
+      );
+      const q = query(ordersCol, orderBy('createdAt', 'asc'));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error('Error fetching session orders:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Close a session after payment.
+   * Sets isActive → false and status → 'CLOSED' so the session is no longer
+   * discoverable via the future "join by OTP" query.
+   *
+   * @param {string} restaurantId
+   * @param {string} sessionId
+   */
+  async paySessionBill(restaurantId, sessionId) {
+    if (!restaurantId || !sessionId) throw new Error('restaurantId and sessionId are required');
+    const sessionRef = doc(db, `restaurants/${restaurantId}/sessions/${sessionId}`);
+    await updateDoc(sessionRef, {
+      status: 'CLOSED',
+      isActive: false,   // marks session as no longer joinable
+      closedAt: serverTimestamp(),
+    });
   },
 };
 

@@ -1,6 +1,6 @@
 "use client";
 import { useCart } from "@/context/CartContext";
-import { ordersService } from "@/libs/firestore";
+import { sessionService } from "@/libs/firestore";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import CartItem from "./CartItem";
@@ -16,29 +16,58 @@ export default function CartModal({ onClose }) {
     restaurantId,
     tableNumber,
     clearCart,
+    sessionId,
+    otp,
+    initSession,
+    placedOrders,
+    addPlacedOrder,
+    customerInfo,
+    setCustomerInfo,
   } = useCart();
-  const [step, setStep] = useState("details"); // 'details' | 'review' | 'loading'
-  const [toast, setToast] = useState("");
-  const [customerInfo, setCustomerInfo] = useState(null);
+
   const router = useRouter();
 
-  const [otp] = useState(() => Math.floor(1000 + Math.random() * 9000));
+  // Determine starting step: skip details if we already have customer info
+  const hasOrdered = placedOrders.length > 0;
+  const [step, setStep] = useState(hasOrdered ? "review" : "details");
+  const [toast, setToast] = useState("");
+
   const cartItems = cart.filter((i) => i.quantity > 0);
 
+  // Totals for previously placed orders
+  const previousTotal = placedOrders.reduce(
+    (acc, o) => acc + (o.grandTotal || 0),
+    0
+  );
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleDetailsSubmit = (info) => {
     setCustomerInfo(info);
     setStep("review");
   };
 
   const handlePlaceOrder = async () => {
-    if (cartItems.length === 0 || !customerInfo) return;
+    if (cartItems.length === 0) return;
+    if (!customerInfo) {
+      setStep("details");
+      return;
+    }
     setStep("loading");
 
-    const orderData = {
-      restaurantId,
+    // Ensure session is initialised (idempotent)
+    if (!sessionId || !otp) initSession();
+
+    const effectiveSessionId = sessionId;
+    const effectiveOtp = otp;
+
+    const sessionMeta = {
       tableNumber,
+      otp: effectiveOtp,
       customerName: `${customerInfo.firstName} ${customerInfo.lastName}`,
       customerPhone: customerInfo.phone,
+    };
+
+    const orderPayload = {
       items: cartItems.map((i) => ({
         id: i.id,
         name: i.name,
@@ -48,14 +77,24 @@ export default function CartModal({ onClose }) {
       subtotal,
       tax,
       grandTotal,
-      status: "OPEN",
-      otp: otp.toString(),
     };
 
     try {
-      await ordersService.placeOrder(restaurantId, orderData);
+      const orderId = await sessionService.placeOrder(
+        restaurantId,
+        effectiveSessionId,
+        sessionMeta,
+        orderPayload
+      );
+
+      // Record this batch locally
+      addPlacedOrder({ ...orderPayload, orderId, placedAt: new Date().toISOString() });
       clearCart();
-      router.push(`/feedback?otp=${otp}&restaurantId=${restaurantId}`);
+
+      // Navigate to feedback
+      router.push(
+        `/feedback?otp=${effectiveOtp}&restaurantId=${restaurantId}&tableno=${tableNumber}`
+      );
     } catch (e) {
       console.error("Error placing order:", e);
       setStep("review");
@@ -63,93 +102,130 @@ export default function CartModal({ onClose }) {
     }
   };
 
+  // ── UI ────────────────────────────────────────────────────────────────────
+  const headerTitle =
+    step === "details"
+      ? "Fill Your Details To Order"
+      : step === "review"
+      ? "Review Your Order"
+      : "Placing Order…";
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden animate-slide-up">
-      {/* Header matching Image 3 & 4 */}
+      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white z-10 shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => (step === "review" ? setStep("details") : onClose())}
+            onClick={() => (step === "review" && !hasOrdered ? setStep("details") : onClose())}
             className="text-gray-800 active:scale-95 transition-transform"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6"></polyline>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-          <h2 className="text-[15px] font-semibold text-gray-800">
-            {step === "details"
-              ? "Fill Your Details To Order"
-              : step === "review"
-                ? "Review Your Order"
-                : "Placing Order..."}
-          </h2>
+          <h2 className="text-[15px] font-semibold text-gray-800">{headerTitle}</h2>
         </div>
         <div className="text-right text-[10px] text-gray-800 font-medium">
-          <p>
-            Table No. <span className="font-bold text-xs">21</span>
-          </p>
-          <p>
-            Sesh. <span className="font-bold text-xs">1234</span>
-          </p>
+          <p>Table No. <span className="font-bold text-xs">{tableNumber ?? "—"}</span></p>
+          <p>Sesh. <span className="font-bold text-xs">{otp ?? "—"}</span></p>
         </div>
       </div>
 
-      {/* Content Area */}
+      {/* Toast */}
+      {toast ? (
+        <div className="bg-red-50 text-red-600 text-xs font-medium px-5 py-2 text-center border-b border-red-100">
+          {toast}
+        </div>
+      ) : null}
+
+      {/* Content */}
       <div className="flex-1 overflow-y-auto bg-white">
+        {/* Loading */}
         {step === "loading" && (
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <Loader size="lg" />
-            <p className="text-gray-500 text-sm font-medium">
-              Placing your order…
-            </p>
+            <p className="text-gray-500 text-sm font-medium">Placing your order…</p>
           </div>
         )}
 
+        {/* Customer Details */}
         {step === "details" && (
           <div className="p-5">
             <CustomerDetailsForm onSubmit={handleDetailsSubmit} />
           </div>
         )}
 
+        {/* Review */}
         {step === "review" && (
-          <div className="p-5 flex flex-col min-h-full">
-            <div className="space-y-4">
-              {cartItems.map((item) => (
-                <CartItem key={item.id} item={item} />
-              ))}
-            </div>
+          <div className="p-5 flex flex-col gap-6">
+            {/* Previously ordered items */}
+            {placedOrders.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                  Previously Ordered
+                </p>
+                <div className="space-y-2 opacity-70">
+                  {placedOrders.map((order, oi) =>
+                    order.items.map((item, ii) => (
+                      <div
+                        key={`prev-${oi}-${ii}`}
+                        className="flex items-center justify-between text-sm text-gray-600"
+                      >
+                        <span>{item.name} × {item.quantity}</span>
+                        <span>₹ {(item.price * item.quantity).toLocaleString("en-IN")}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="flex justify-between text-xs font-semibold text-gray-500 mt-2 pt-2 border-t border-dashed border-gray-200">
+                  <span>Previous total (incl. GST)</span>
+                  <span>₹ {previousTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</span>
+                </div>
+              </div>
+            )}
 
-            <div className="mt-auto pt-8">
-              {/* Sticky footer for Place Order (Image 4 bottom) */}
-            </div>
+            {/* New items */}
+            {cartItems.length > 0 && (
+              <div>
+                {placedOrders.length > 0 && (
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                    New Items
+                  </p>
+                )}
+                <div className="space-y-4">
+                  {cartItems.map((item) => (
+                    <CartItem key={item.id} item={item} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Footer sticky for Review Step */}
+      {/* Footer – only for review step */}
       {step === "review" && (
         <div className="shrink-0 bg-white px-5 pt-4 pb-6 border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm text-gray-500">Subtotal</span>
+            <span className="text-sm text-gray-700">₹ {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</span>
+          </div>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm text-gray-500">GST (5%)</span>
+            <span className="text-sm text-gray-700">₹ {tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
           <div className="flex items-center justify-between mb-4">
             <span className="text-[17px] font-bold text-gray-800">Total</span>
             <span className="text-[17px] font-bold text-gray-900 tracking-tight">
-              ₹{" "}
-              {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+              ₹ {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
             </span>
           </div>
           <button
             onClick={handlePlaceOrder}
-            className="w-full bg-[#059669] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-95 transition-transform"
+            disabled={cartItems.length === 0}
+            className="w-full bg-[#059669] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
           >
-            Place Order
+            {hasOrdered ? "Add To My Order →" : "Place Order"}
           </button>
         </div>
       )}
