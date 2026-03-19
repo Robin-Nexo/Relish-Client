@@ -1,39 +1,40 @@
-'use client';
-import { useState } from 'react';
-import Toast from './Toast';
+"use client";
+import { useState } from "react";
+import Toast from "./Toast";
 
 export default function CustomerDetailsForm({ onSubmit }) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [localToast, setLocalToast] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [localToast, setLocalToast] = useState("");
 
   const handleSubmit = () => {
-    if (!firstName.trim()) return setLocalToast('Please enter your first name');
-    if (!lastName.trim()) return setLocalToast('Please enter your last name');
+    if (!firstName.trim()) return setLocalToast("Please enter your first name");
+    if (!lastName.trim()) return setLocalToast("Please enter your last name");
     if (!phone.trim() || phone.length !== 10 || isNaN(phone))
-      return setLocalToast('Enter a valid 10-digit mobile number');
-    
-    setLocalToast('');
-    onSubmit({ 
-      firstName: firstName.trim(), 
-      lastName: lastName.trim(), 
+      return setLocalToast("Enter a valid 10-digit mobile number");
+
+    setLocalToast("");
+    onSubmit({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
       phone: phone.trim(),
-      email: email.trim()
+      email: email.trim(),
     });
   };
 
   const inputClass =
-    'w-full border border-gray-200 rounded-xl px-4 py-3 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#059669] focus:border-[#059669] transition-all bg-white';
+    "w-full border border-gray-200 rounded-xl px-4 py-3 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#059669] focus:border-[#059669] transition-all bg-white";
 
-  const labelClass = 'block text-[11px] font-medium text-gray-600 mb-2';
+  const labelClass = "block text-[11px] font-medium text-gray-600 mb-2";
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className="flex flex-col min-h-full bg-white">
       <div className="space-y-6">
         <p className="text-[13px] text-gray-500 leading-relaxed max-w-[90%]">
-          Please enter your correct WhatsApp phone number and name for verification.
+          Please enter your correct WhatsApp phone number and name for
+          verification.
         </p>
 
         <div className="space-y-5">
@@ -70,7 +71,7 @@ export default function CustomerDetailsForm({ onSubmit }) {
               placeholder="Enter"
               maxLength={10}
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
             />
           </div>
 
@@ -97,12 +98,7 @@ export default function CustomerDetailsForm({ onSubmit }) {
         </button>
       </div>
 
-      {localToast && (
-        <Toast
-          message={localToast}
-          duration={2500}
-        />
-      )}
+      {localToast && <Toast message={localToast} duration={2500} />}
     </div>
   );
 }

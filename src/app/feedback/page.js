@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import Loader from '@/components/Loader';
+import Loader from "@/components/Loader";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 function FeedbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const otp = searchParams.get('otp') || '---';
+  const otp = searchParams.get("otp") || "---";
 
   return (
     <div className="max-w-md mx-auto min-h-svh flex flex-col relative bg-[#fffdfa] bg-food-pattern bg-repeat">
@@ -17,7 +17,6 @@ function FeedbackContent() {
 
       {/* Main Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center pt-24 px-6 pb-8">
-        
         {/* Circle Image */}
         <div className="w-45 h-45 rounded-full border-4 border-[#aba182] overflow-hidden shadow-lg mb-8">
           <Image
@@ -31,24 +30,22 @@ function FeedbackContent() {
         </div>
 
         {/* OTP Text */}
-        <h1 className="text-[64px] font-black text-black leading-none tracking-tight">
+        <h1 className="text-[60px] font-bold text-black leading-none tracking-tight">
           {otp}
         </h1>
 
         {/* Status */}
-        <h2 className="text-[17px] font-bold text-black mt-6">
-          Order Placed
-        </h2>
+        <h2 className="text-[17px] font-bold text-black mt-6">Order Placed</h2>
 
         {/* Description */}
-        <p className="text-[13px] text-gray-800 text-center mt-3 max-w-65 leading-relaxed font-medium">
+        <p className="text-[13px] text-gray-800 text-center mt-3 px-6 leading-relaxed font-medium">
           Someone will reach you shortly. Please give them the above code.
         </p>
 
         {/* Bottom Button */}
         <div className="mt-auto pt-10 w-full">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
             className="w-full bg-[#059669] text-white font-semibold text-[15px] py-4 rounded-xl active:scale-95 transition-transform shadow-md"
           >
             Go To Menu
@@ -61,11 +58,13 @@ function FeedbackContent() {
 
 export default function FeedbackPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-svh">
-        <Loader size="lg" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-svh">
+          <Loader size="lg" />
+        </div>
+      }
+    >
       <FeedbackContent />
     </Suspense>
   );

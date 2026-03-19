@@ -72,7 +72,7 @@ function MenuPage() {
 
   if (status === "error") {
     return (
-      <>
+      <div className="max-w-md mx-auto min-h-svh relative pb-28 bg-[#fffdfa] bg-food-pattern bg-repeat">
         {/* Global Background Fade */}
         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/0 via-white/30 to-white/80 z-0" />
 
@@ -81,7 +81,7 @@ function MenuPage() {
           <h1 className="text-xl font-semibold text-gray-800 mb-2">Oops!</h1>
           <p className="text-sm text-gray-500">{errorMsg}</p>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -121,7 +121,7 @@ function MenuContent({
   return (
     <div className="max-w-md mx-auto min-h-svh relative pb-28 bg-[#fffdfa] bg-food-pattern bg-repeat">
       {/* Global Background Fade */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 via-white/80 to-white via-[25vh] to-[45vh] z-0" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 via-white/50 to-white via-[25vh] to-[80vh] z-0" />
 
       {/* Main Content wrapper */}
       <div className="relative z-10">
