@@ -1,17 +1,17 @@
-import { db } from './firebase';
 import {
+  addDoc,
   collection,
   doc,
-  addDoc,
-  setDoc,
   getDoc,
   getDocs,
-  updateDoc,
-  query,
-  where,
   orderBy,
+  query,
   serverTimestamp,
-} from 'firebase/firestore';
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "./firebase";
 
 // ─── Multi-tenant helpers ──────────────────────────────────────────────────────
 const tenantCol = (restaurantId, path) =>
@@ -20,33 +20,45 @@ const tenantCol = (restaurantId, path) =>
 const tenantDoc = (restaurantId, ...segments) =>
   doc(db, `restaurants/${restaurantId}`, ...segments);
 
+// ─── Restaurant ───────────────────────────────────────────────────────────────
+export const restaurantService = {
+  async getRestaurantData(restaurantId) {
+    if (!restaurantId) return null;
+    try {
+      const restRef = doc(db, 'restaurants', restaurantId);
+      const snap = await getDoc(restRef);
+      if (snap.exists()) {
+        return snap.data();
+      }
+      return null;
+    } catch (e) {
+      console.error("Error fetching restaurant data:", e);
+      return null;
+    }
+  }
+};
+
 // ─── Tables ───────────────────────────────────────────────────────────────────
 export const tablesService = {
-  /**
-   * Checks whether a table with the given number exists inside the restaurant.
-   * @param {string} restaurantId
-   * @param {string|number} tableNumber
-   * @returns {Promise<boolean>}
-   */
   async validateTable(restaurantId, tableNumber) {
     if (!restaurantId || !tableNumber) return false;
     try {
       const q = query(
-        tenantCol(restaurantId, 'tables'),
-        where('no', '==', tableNumber)
+        tenantCol(restaurantId, "tables"),
+        where("name", "==", tableNumber),
       );
       const snap = await getDocs(q);
       if (!snap.empty) return true;
 
       // also try matching by name or number (numeric vs string)
       const q2 = query(
-        tenantCol(restaurantId, 'tables'),
-        where('no', '==', String(tableNumber))
+        tenantCol(restaurantId, "tables"),
+        where("no", "==", String(tableNumber)),
       );
       const snap2 = await getDocs(q2);
       return !snap2.empty;
     } catch (e) {
-      console.error('Error validating table:', e);
+      console.error("Error validating table:", e);
       return false;
     }
   },
@@ -62,11 +74,14 @@ export const categoriesService = {
   async getAllCategories(restaurantId) {
     if (!restaurantId) return [];
     try {
-      const q = query(tenantCol(restaurantId, 'categories'), orderBy('name', 'asc'));
+      const q = query(
+        tenantCol(restaurantId, "categories"),
+        orderBy("name", "asc"),
+      );
       const snap = await getDocs(q);
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
-      console.error('Error fetching categories:', e);
+      console.error("Error fetching categories:", e);
       return [];
     }
   },
@@ -74,19 +89,17 @@ export const categoriesService = {
 
 // ─── Menu Items ───────────────────────────────────────────────────────────────
 export const menuService = {
-  /**
-   * Fetch all menu items for a restaurant.
-   * @param {string} restaurantId
-   * @returns {Promise<Array>}
-   */
   async getAllMenuItems(restaurantId) {
     if (!restaurantId) return [];
     try {
-      const q = query(tenantCol(restaurantId, 'menuItems'), orderBy('name', 'asc'));
+      const q = query(
+        tenantCol(restaurantId, "menuItems"),
+        orderBy("name", "asc"),
+      );
       const snap = await getDocs(q);
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
-      console.error('Error fetching menu items:', e);
+      console.error("Error fetching menu items:", e);
       return [];
     }
   },
@@ -108,20 +121,14 @@ export const menuService = {
  *   { items, subtotal, tax, grandTotal, createdAt }
  */
 export const sessionService = {
-  /**
-   * Place a new order batch within an existing or new session.
-   * Creates the session document on first call; appends to orders sub-collection on subsequent calls.
-   *
-   * @param {string} restaurantId
-   * @param {string} sessionId     – UUID generated on client
-   * @param {object} sessionMeta   – { tableNumber, otp, customerName, customerPhone }
-   * @param {object} orderData     – { items, subtotal, tax, grandTotal }
-   * @returns {Promise<string>}     – the new order document ID
-   */
   async placeOrder(restaurantId, sessionId, sessionMeta, orderData) {
-    if (!restaurantId || !sessionId) throw new Error('restaurantId and sessionId are required');
+    if (!restaurantId || !sessionId)
+      throw new Error("restaurantId and sessionId are required");
 
-    const sessionRef = doc(db, `restaurants/${restaurantId}/sessions/${sessionId}`);
+    const sessionRef = doc(
+      db,
+      `restaurants/${restaurantId}/sessions/${sessionId}`,
+    );
     const sessionSnap = await getDoc(sessionRef);
 
     if (!sessionSnap.exists()) {
@@ -132,7 +139,7 @@ export const sessionService = {
         otp: sessionMeta.otp,
         customerName: sessionMeta.customerName,
         customerPhone: sessionMeta.customerPhone,
-        status: 'OPEN',
+        status: "OPEN",
         /**
          * isActive flag — FUTURE FEATURE HOOK
          * When a friend wants to join the same session in the future,
@@ -147,10 +154,13 @@ export const sessionService = {
     }
 
     // Append a new order to the orders sub-collection
-    const ordersCol = collection(db, `restaurants/${restaurantId}/sessions/${sessionId}/orders`);
+    const ordersCol = collection(
+      db,
+      `restaurants/${restaurantId}/sessions/${sessionId}/orders`,
+    );
     const orderRef = await addDoc(ordersCol, {
       ...orderData,
-      status: 'OPEN',
+      status: "OPEN",
       createdAt: serverTimestamp(),
     });
 
@@ -168,31 +178,27 @@ export const sessionService = {
     try {
       const ordersCol = collection(
         db,
-        `restaurants/${restaurantId}/sessions/${sessionId}/orders`
+        `restaurants/${restaurantId}/sessions/${sessionId}/orders`,
       );
-      const q = query(ordersCol, orderBy('createdAt', 'asc'));
+      const q = query(ordersCol, orderBy("createdAt", "asc"));
       const snap = await getDocs(q);
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch (e) {
-      console.error('Error fetching session orders:', e);
+      console.error("Error fetching session orders:", e);
       return [];
     }
   },
 
-  /**
-   * Close a session after payment.
-   * Sets isActive → false and status → 'CLOSED' so the session is no longer
-   * discoverable via the future "join by OTP" query.
-   *
-   * @param {string} restaurantId
-   * @param {string} sessionId
-   */
   async paySessionBill(restaurantId, sessionId) {
-    if (!restaurantId || !sessionId) throw new Error('restaurantId and sessionId are required');
-    const sessionRef = doc(db, `restaurants/${restaurantId}/sessions/${sessionId}`);
+    if (!restaurantId || !sessionId)
+      throw new Error("restaurantId and sessionId are required");
+    const sessionRef = doc(
+      db,
+      `restaurants/${restaurantId}/sessions/${sessionId}`,
+    );
     await updateDoc(sessionRef, {
-      status: 'CLOSED',
-      isActive: false,   // marks session as no longer joinable
+      status: "CLOSED",
+      isActive: false, // marks session as no longer joinable
       closedAt: serverTimestamp(),
     });
   },
@@ -200,14 +206,9 @@ export const sessionService = {
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 export const reviewsService = {
-  /**
-   * Submit a customer review.
-   * @param {string} restaurantId
-   * @param {object} data  { name, review }
-   */
   async addReview(restaurantId, data) {
-    if (!restaurantId) throw new Error('restaurantId is required');
-    await addDoc(tenantCol(restaurantId, 'reviews'), {
+    if (!restaurantId) throw new Error("restaurantId is required");
+    await addDoc(tenantCol(restaurantId, "reviews"), {
       ...data,
       createdAt: serverTimestamp(),
     });
