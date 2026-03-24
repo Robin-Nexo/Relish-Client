@@ -10,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -25,7 +26,7 @@ export const restaurantService = {
   async getRestaurantData(restaurantId) {
     if (!restaurantId) return null;
     try {
-      const restRef = doc(db, 'restaurants', restaurantId);
+      const restRef = doc(db, "restaurants", restaurantId);
       const snap = await getDoc(restRef);
       if (snap.exists()) {
         return snap.data();
@@ -35,7 +36,7 @@ export const restaurantService = {
       console.error("Error fetching restaurant data:", e);
       return null;
     }
-  }
+  },
 };
 
 // ─── Tables ───────────────────────────────────────────────────────────────────
@@ -141,17 +142,20 @@ export const sessionService = {
         customerPhone: sessionMeta.customerPhone,
         status: "OPEN",
         /**
-         * isActive flag — FUTURE FEATURE HOOK
-         * When a friend wants to join the same session in the future,
-         * they will enter the OTP manually. The app will query:
-         *   sessions where otp == enteredOtp AND isActive == true AND restaurantId == X
-         * and link them to this session directly.
-         * For now this is simply set to true and flipped to false on paySessionBill().
+         * verified flag — PER TABLE VERIFICATION
+         * When the waiter confirms the table/OTP, this will be set to true.
+         * Once true, any subsequent orders in this session will be automatically verified.
          */
+        verified: false, // Changed from true to false to enable verification flow
         isActive: true,
         createdAt: serverTimestamp(),
       });
     }
+
+    const sessionData = sessionSnap.exists()
+      ? sessionSnap.data()
+      : { verified: false };
+    const isVerified = sessionData.verified || false;
 
     // Append a new order to the orders sub-collection
     const ordersCol = collection(
@@ -161,8 +165,42 @@ export const sessionService = {
     const orderRef = await addDoc(ordersCol, {
       ...orderData,
       status: "OPEN",
+      verified: isVerified,
       createdAt: serverTimestamp(),
     });
+
+    // Also sync to the global orders collection for the admin POS to see
+    const globalOrdersCol = collection(
+      db,
+      `restaurants/${restaurantId}/orders`,
+    );
+    await addDoc(globalOrdersCol, {
+      ...orderData,
+      tableNumber: sessionMeta.tableNumber,
+      sessionId: sessionId,
+      otp: sessionMeta.otp,
+      customerName: sessionMeta.customerName,
+      customerPhone: sessionMeta.customerPhone,
+      status: "OPEN",
+      verified: isVerified,
+      createdAt: serverTimestamp(),
+      source: "client", // To distinguish from POS-created orders
+    });
+
+    // Update table status to occupied (fails gracefully if permissions are missing)
+    try {
+      const tablesCol = collection(db, `restaurants/${restaurantId}/tables`);
+      const q = query(tablesCol, where("name", "==", sessionMeta.tableNumber));
+      const tableSnap = await getDocs(q);
+      if (!tableSnap.empty) {
+        const tableDoc = tableSnap.docs[0];
+        await updateDoc(tableDoc.ref, { status: "occupied" });
+      }
+    } catch (e) {
+      console.warn(
+        "Could not update table status directly. The POS will still detect occupancy from the new order.",
+      );
+    }
 
     return orderRef.id;
   },
@@ -186,6 +224,57 @@ export const sessionService = {
     } catch (e) {
       console.error("Error fetching session orders:", e);
       return [];
+    }
+  },
+
+  async requestPayment(restaurantId, sessionId, tableNumber) {
+    if (!restaurantId || !sessionId)
+      throw new Error("restaurantId and sessionId are required");
+
+    const sessionRef = doc(
+      db,
+      `restaurants/${restaurantId}/sessions/${sessionId}`,
+    );
+    await updateDoc(sessionRef, {
+      status: "PAYMENT_PENDING",
+      updatedAt: serverTimestamp(),
+    });
+
+    // Signal admin POS via global orders as well
+    const globalOrdersCol = collection(
+      db,
+      `restaurants/${restaurantId}/orders`,
+    );
+    const qOrders = query(
+      globalOrdersCol,
+      where("sessionId", "==", sessionId),
+      where("status", "==", "OPEN"),
+    );
+    const orderSnap = await getDocs(qOrders);
+
+    if (!orderSnap.empty) {
+      const batch = writeBatch(db);
+      orderSnap.docs.forEach((doc) => {
+        batch.update(doc.ref, { status: "PAYMENT_PENDING" });
+      });
+      await batch.commit();
+    }
+
+    // Also update the table document to signal the admin POS directly (fails gracefully)
+    try {
+      const tablesCol = collection(db, `restaurants/${restaurantId}/tables`);
+      const qTable = query(tablesCol, where("name", "==", tableNumber));
+      const tableSnap = await getDocs(qTable);
+      if (!tableSnap.empty) {
+        const tableDoc = tableSnap.docs[0];
+        await updateDoc(tableDoc.ref, {
+          paymentStatus: "pending",
+        });
+      }
+    } catch (e) {
+      console.warn(
+        "Could not update table payment status directly. The POS will still detect bill request from the order status.",
+      );
     }
   },
 

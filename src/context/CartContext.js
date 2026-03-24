@@ -1,20 +1,22 @@
-'use client';
+"use client";
 
-import React, {
+import { db } from "@/libs/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import {
   createContext,
-  useContext,
-  useState,
   useCallback,
+  useContext,
   useEffect,
-} from 'react';
+  useState,
+} from "react";
 
 const CartCtx = createContext(null);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
 
@@ -22,10 +24,10 @@ function generateOTP() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-const LS_KEY = 'relish_session';
+const LS_KEY = "relish_session";
 
 function loadSession() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(LS_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -35,14 +37,14 @@ function loadSession() {
 }
 
 function saveSession(data) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   } catch {}
 }
 
 function clearSession() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   localStorage.removeItem(LS_KEY);
 }
 
@@ -103,15 +105,19 @@ export function CartProvider({ children }) {
 
   const addToCart = useCallback((item) => {
     setCart((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i))
+      prev.map((i) =>
+        i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i,
+      ),
     );
   }, []);
 
   const removeFromCart = useCallback((item) => {
     setCart((prev) =>
       prev.map((i) =>
-        i.id === item.id && i.quantity > 0 ? { ...i, quantity: i.quantity - 1 } : i
-      )
+        i.id === item.id && i.quantity > 0
+          ? { ...i, quantity: i.quantity - 1 }
+          : i,
+      ),
     );
   }, []);
 
@@ -143,10 +149,32 @@ export function CartProvider({ children }) {
     clearSession();
   }, [clearCart]);
 
+  // ── Listen for session completion from admin POS ───────────────────────────
+  useEffect(() => {
+    if (!restaurantId || !sessionId) return;
+
+    const sessionRef = doc(
+      db,
+      `restaurants/${restaurantId}/sessions/${sessionId}`,
+    );
+    const unsubscribe = onSnapshot(sessionRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.status === "CLOSED") {
+          // Admin has completed the order
+          endSession();
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [restaurantId, sessionId, endSession]);
+
   // ── Computed totals (current cart only) ───────────────────────────────────
   const subtotal = cart.reduce(
-    (acc, i) => acc + (i.quantity > 0 ? parseFloat(i.price || 0) * i.quantity : 0),
-    0
+    (acc, i) =>
+      acc + (i.quantity > 0 ? parseFloat(i.price || 0) * i.quantity : 0),
+    0,
   );
   const tax = parseFloat(((5 * subtotal) / 100).toFixed(2));
   const grandTotal = parseFloat((subtotal + tax).toFixed(2));
@@ -191,6 +219,6 @@ export function CartProvider({ children }) {
 
 export function useCart() {
   const ctx = useContext(CartCtx);
-  if (!ctx) throw new Error('useCart must be used within <CartProvider>');
+  if (!ctx) throw new Error("useCart must be used within <CartProvider>");
   return ctx;
 }
