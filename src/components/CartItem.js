@@ -3,10 +3,10 @@ import { useCart } from '@/context/CartContext';
 import Image from 'next/image';
 
 export default function CartItem({ item }) {
-  const { addToCart, removeFromCart, setCart } = useCart();
+  const { addToCart, removeFromCart } = useCart();
   
   const handleRemoveAll = () => {
-    setCart((prev) => prev.map((i) => (i.id === item.id ? { ...i, quantity: 0 } : i)));
+    removeFromCart(item, item.variantName ? { name: item.variantName } : null, item.quantity);
   };
 
   return (
@@ -47,7 +47,7 @@ export default function CartItem({ item }) {
           {/* Quantity Controls */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => removeFromCart(item)}
+              onClick={() => removeFromCart(item, item.variantName ? { name: item.variantName } : null)}
               className="text-gray-600 font-bold w-5 h-5 flex items-center justify-center active:scale-95"
             >
               <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor"><rect width="10" height="2" rx="1"/></svg>
@@ -56,7 +56,7 @@ export default function CartItem({ item }) {
               {item.quantity}
             </span>
             <button
-              onClick={() => addToCart(item)}
+              onClick={() => addToCart(item, item.variantName ? { name: item.variantName, price: item.price } : null)}
               className="bg-[#059669] text-white font-bold w-5 h-5 rounded flex items-center justify-center active:scale-95"
             >
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">

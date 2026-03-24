@@ -50,8 +50,9 @@ function clearSession() {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function CartProvider({ children }) {
-  // cart holds ALL menu items each with quantity:0 initially
+  // Selected items in cart
   const [cart, setCart] = useState([]);
+  const [menuItems, setMenuItemsRaw] = useState([]);
   const [restaurantId, setRestaurantId] = useState(null);
   const [tableNumber, setTableNumber] = useState(null);
 
@@ -97,33 +98,50 @@ export function CartProvider({ children }) {
   }, []);
 
   /**
-   * Load menu items into the cart (quantity starts at 0).
+   * Load menu items from DB.
    */
   const setMenuItems = useCallback((items) => {
-    setCart(items.map((item) => ({ ...item, quantity: 0 })));
+    setMenuItemsRaw(items);
+    setCart([]);
   }, []);
 
-  const addToCart = useCallback((item) => {
-    setCart((prev) =>
-      prev.map((i) =>
-        i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i,
-      ),
-    );
+  const addToCart = useCallback((item, variantInfo = null, qtyStr = 1) => {
+    const qty = parseInt(qtyStr, 10);
+    setCart((prev) => {
+      const cartItemId = variantInfo ? `${item.id}-${variantInfo.name}` : item.id;
+      const existing = prev.find(i => i.cartItemId === cartItemId);
+      if (existing) {
+        return prev.map(i => i.cartItemId === cartItemId ? { ...i, quantity: i.quantity + qty } : i);
+      } else {
+        return [...prev, { 
+          ...item, 
+          cartItemId, 
+          variantName: variantInfo?.name || null,
+          price: variantInfo ? variantInfo.price : item.price,
+          name: variantInfo ? `${item.name} (${variantInfo.name})` : item.name,
+          baseName: item.name,
+          quantity: qty 
+        }];
+      }
+    });
   }, []);
 
-  const removeFromCart = useCallback((item) => {
-    setCart((prev) =>
-      prev.map((i) =>
-        i.id === item.id && i.quantity > 0
-          ? { ...i, quantity: i.quantity - 1 }
-          : i,
-      ),
-    );
+  const removeFromCart = useCallback((item, variantInfo = null, qtyStr = 1) => {
+    const qty = parseInt(qtyStr, 10);
+    setCart((prev) => {
+      const cartItemId = variantInfo ? `${item.id}-${variantInfo.name}` : item.id;
+      return prev.map(i => {
+        if (i.cartItemId === cartItemId) {
+          return { ...i, quantity: Math.max(0, i.quantity - qty) };
+        }
+        return i;
+      }).filter(i => i.quantity > 0);
+    });
   }, []);
 
-  /** Reset quantities to 0 (after an order batch is submitted) */
+  /** Reset cart */
   const clearCart = useCallback(() => {
-    setCart((prev) => prev.map((i) => ({ ...i, quantity: 0 })));
+    setCart([]);
   }, []);
 
   /**
@@ -183,7 +201,8 @@ export function CartProvider({ children }) {
   return (
     <CartCtx.Provider
       value={{
-        // cart
+        // menu & cart
+        menuItems,
         cart,
         setMenuItems,
         addToCart,

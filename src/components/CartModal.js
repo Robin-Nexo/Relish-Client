@@ -194,7 +194,7 @@ export default function CartModal({ onClose }) {
                 )}
                 <div className="space-y-4">
                   {cartItems.map((item) => (
-                    <CartItem key={item.id} item={item} />
+                    <CartItem key={item.cartItemId || item.id} item={item} />
                   ))}
                 </div>
               </div>

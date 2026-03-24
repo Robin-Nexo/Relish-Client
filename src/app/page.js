@@ -4,6 +4,7 @@ import CartModal from "@/components/CartModal";
 import Loader from "@/components/Loader";
 import MenuCard from "@/components/MenuCard";
 import PayBillModal from "@/components/PayBillModal";
+import ProductModal from "@/components/ProductModal";
 import ViewOrderModal from "@/components/ViewOrderModal";
 import { useCart } from "@/context/CartContext";
 import { categoriesService, menuService, tablesService, restaurantService } from "@/libs/firestore";
@@ -231,20 +232,23 @@ function MenuContent({
   setCartOpen,
   restaurantData,
 }) {
-  const { cart, itemCount, grandTotal, placedOrders, otp, tableNumber } =
+  const { menuItems, cart, itemCount, grandTotal, placedOrders, otp, tableNumber } =
     useCart();
   const [vegOnly, setVegOnly] = useState(false);
   const [viewOrderOpen, setViewOrderOpen] = useState(false);
   const [payBillOpen, setPayBillOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Filter logic
   let filteredItems =
     activeCategory === "ALL"
-      ? cart
-      : cart.filter((i) => i.category === activeCategory);
+      ? menuItems
+      : menuItems.filter((i) => i.category === activeCategory);
+
+  filteredItems = filteredItems.filter((i) => i.status !== "inactive");
 
   if (vegOnly) {
-    filteredItems = filteredItems.filter((i) => i.isVeg);
+    filteredItems = filteredItems.filter((i) => i.isVeg === true || i.isVeg === "true");
   }
 
   const hasNewItems = itemCount > 0;
@@ -361,7 +365,7 @@ function MenuContent({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredItems.map((item) => (
-              <MenuCard key={item.id} item={item} />
+              <MenuCard key={item.id} item={item} onClick={() => setSelectedProduct(item)} />
             ))}
           </div>
         )}
@@ -453,6 +457,7 @@ function MenuContent({
         <ViewOrderModal onClose={() => setViewOrderOpen(false)} />
       )}
       {payBillOpen && <PayBillModal onClose={() => setPayBillOpen(false)} />}
+      {selectedProduct && <ProductModal item={selectedProduct} onClose={() => setSelectedProduct(null)} />}
     </div>
   );
 }

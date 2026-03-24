@@ -2,24 +2,33 @@
 import { useCart } from "@/context/CartContext";
 import Image from "next/image";
 
-export default function MenuCard({ item }) {
-  const { cart, addToCart, removeFromCart, setCart } = useCart();
-  const cartItem = cart.find((c) => c.id === item.id);
-  const quantity = cartItem ? cartItem.quantity : 0;
+export default function MenuCard({ item, onClick }) {
+  const { cart, addToCart, removeFromCart } = useCart();
+  
+  const quantity = cart.filter((c) => c.id === item.id).reduce((sum, c) => sum + c.quantity, 0);
+  const hasVariants = item.variants && item.variants.length > 0;
 
-  const handleToggle = () => {
+  const handleToggle = (e) => {
+    e.stopPropagation();
     if (quantity === 0) {
-      addToCart(item);
+      if (hasVariants) {
+        if (onClick) onClick();
+      } else {
+        addToCart(item);
+      }
     } else {
-      // If clicking the top-right checkmark when already selected, clear it
-      setCart((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, quantity: 0 } : i)),
-      );
+      if (hasVariants) {
+        if (onClick) onClick();
+      } else {
+        cart.filter(c => c.id === item.id).forEach(c => {
+          removeFromCart(item, null, c.quantity);
+        });
+      }
     }
   };
 
   return (
-    <div className="bg-white rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100 p-2.5 flex flex-col relative">
+    <div onClick={onClick} className="bg-white rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100 p-2.5 flex flex-col relative cursor-pointer active:scale-[0.98] transition-transform">
       {/* Top Right Checkbox / Plus */}
       <button
         onClick={handleToggle}
@@ -78,7 +87,14 @@ export default function MenuCard({ item }) {
         {quantity > 0 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md flex items-center h-7 px-1 gap-3">
             <button
-              onClick={() => removeFromCart(item)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasVariants) {
+                  if (onClick) onClick();
+                } else {
+                  removeFromCart(item);
+                }
+              }}
               className="text-gray-600 font-bold w-5 h-5 flex items-center justify-center active:scale-95"
             >
               <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor">
@@ -89,7 +105,14 @@ export default function MenuCard({ item }) {
               {quantity}
             </span>
             <button
-              onClick={() => addToCart(item)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasVariants) {
+                  if (onClick) onClick();
+                } else {
+                  addToCart(item);
+                }
+              }}
               className="bg-[#059669] text-white font-bold w-5 h-5 rounded flex items-center justify-center active:scale-95"
             >
               <svg
@@ -112,9 +135,20 @@ export default function MenuCard({ item }) {
 
       {/* Info */}
       <div className="pt-3 pb-1 flex flex-col flex-1">
-        <h3 className="font-semibold text-[13px] text-gray-800 leading-snug line-clamp-1">
-          {item.name}
-        </h3>
+        <div className="flex items-start gap-1">
+          {item.isVeg === true || item.isVeg === "true" ? (
+            <div className="w-3 h-3 border border-green-600 flex items-center justify-center rounded-[2px] mt-[3px] shrink-0">
+              <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+            </div>
+          ) : (
+            <div className="w-3 h-3 border border-red-600 flex items-center justify-center rounded-[2px] mt-[3px] shrink-0">
+              <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div>
+            </div>
+          )}
+          <h3 className="font-semibold text-[13px] text-gray-800 leading-snug line-clamp-1">
+            {item.name}
+          </h3>
+        </div>
         {item.description && (
           <p className="text-[10px] text-gray-400 mt-1 line-clamp-2 leading-tight">
             {item.description}
