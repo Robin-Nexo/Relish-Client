@@ -67,6 +67,8 @@ export function CartProvider({ children }) {
   const [customerInfo, setCustomerInfo] = useState(null);
 
   // ── Restore session from localStorage on first mount ──────────────────────
+  const [isSessionLoaded, setIsSessionLoaded] = useState(false);
+
   useEffect(() => {
     const saved = loadSession();
     if (saved) {
@@ -75,6 +77,7 @@ export function CartProvider({ children }) {
       if (saved.placedOrders) setPlacedOrders(saved.placedOrders);
       if (saved.customerInfo) setCustomerInfo(saved.customerInfo);
     }
+    setIsSessionLoaded(true);
   }, []);
 
   // ── Persist session data whenever it changes ───────────────────────────────
@@ -105,19 +108,24 @@ export function CartProvider({ children }) {
     setCart([]);
   }, []);
 
-  const addToCart = useCallback((item, variantInfo = null, qtyStr = 1) => {
+  const addToCart = useCallback((item, variantInfo = null, qtyStr = 1, selectedAddons = [], finalBasePrice = null) => {
     const qty = parseInt(qtyStr, 10);
     setCart((prev) => {
-      const cartItemId = variantInfo ? `${item.id}-${variantInfo.name}` : item.id;
+      const addonStr = selectedAddons.map(a => a.id).sort().join(',');
+      const variantStr = variantInfo ? variantInfo.name : 'base';
+      const cartItemId = `${item.id}-${variantStr}-${addonStr}`;
+
       const existing = prev.find(i => i.cartItemId === cartItemId);
       if (existing) {
         return prev.map(i => i.cartItemId === cartItemId ? { ...i, quantity: i.quantity + qty } : i);
       } else {
+        const base = finalBasePrice !== null ? finalBasePrice : (variantInfo ? variantInfo.price : (item._discountedPrice ?? item.price));
         return [...prev, { 
           ...item, 
           cartItemId, 
           variantName: variantInfo?.name || null,
-          price: variantInfo ? variantInfo.price : item.price,
+          price: base, 
+          selectedAddons,
           name: variantInfo ? `${item.name} (${variantInfo.name})` : item.name,
           baseName: item.name,
           quantity: qty 
@@ -126,10 +134,13 @@ export function CartProvider({ children }) {
     });
   }, []);
 
-  const removeFromCart = useCallback((item, variantInfo = null, qtyStr = 1) => {
+  const removeFromCart = useCallback((item, variantInfo = null, qtyStr = 1, selectedAddons = []) => {
     const qty = parseInt(qtyStr, 10);
     setCart((prev) => {
-      const cartItemId = variantInfo ? `${item.id}-${variantInfo.name}` : item.id;
+      const addonStr = selectedAddons.map(a => a.id).sort().join(',');
+      const variantStr = variantInfo ? variantInfo.name : 'base';
+      const cartItemId = `${item.id}-${variantStr}-${addonStr}`;
+
       return prev.map(i => {
         if (i.cartItemId === cartItemId) {
           return { ...i, quantity: Math.max(0, i.quantity - qty) };
@@ -190,8 +201,11 @@ export function CartProvider({ children }) {
 
   // ── Computed totals (current cart only) ───────────────────────────────────
   const subtotal = cart.reduce(
-    (acc, i) =>
-      acc + (i.quantity > 0 ? parseFloat(i.price || 0) * i.quantity : 0),
+    (acc, i) => {
+      const addonsSum = (i.selectedAddons || []).reduce((sum, a) => sum + (parseFloat(a.price) || 0), 0);
+      const unitTotal = parseFloat(i.price || 0) + addonsSum;
+      return acc + (i.quantity > 0 ? unitTotal * i.quantity : 0);
+    },
     0,
   );
   const tax = parseFloat(((5 * subtotal) / 100).toFixed(2));

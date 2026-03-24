@@ -1,8 +1,8 @@
-import { Inter } from "next/font/google";
+import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 
-const inter = Inter({ subsets: ["latin"] });
+const montserrat = Montserrat({ subsets: ["latin"] });
 
 export const metadata = {
   title: "Relish — Order Your Food",
@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${inter.className} h-full`}>
+    <html lang="en" className={`${montserrat.className} h-full`}>
       <body className="min-h-full bg-white text-gray-900 antialiased">
         <CartProvider>{children}</CartProvider>
       </body>

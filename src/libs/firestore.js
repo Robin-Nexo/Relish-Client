@@ -303,3 +303,33 @@ export const reviewsService = {
     });
   },
 };
+
+// ─── Addons ───────────────────────────────────────────────────────────────────
+export const addonsService = {
+  async getAllAddons(restaurantId) {
+    if (!restaurantId) return [];
+    try {
+      const q = query(tenantCol(restaurantId, "addons"), orderBy("name", "asc"));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error("Error fetching addons:", e);
+      return [];
+    }
+  },
+};
+
+// ─── Offers ───────────────────────────────────────────────────────────────────
+export const offersService = {
+  async getAllOffers(restaurantId) {
+    if (!restaurantId) return [];
+    try {
+      const q = query(tenantCol(restaurantId, "offers"), orderBy("name", "asc"));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error("Error fetching offers:", e);
+      return [];
+    }
+  },
+};

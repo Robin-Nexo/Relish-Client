@@ -11,24 +11,24 @@ export default function MenuCard({ item, onClick }) {
   const handleToggle = (e) => {
     e.stopPropagation();
     if (quantity === 0) {
-      if (hasVariants) {
+      if (hasVariants || (item._addonsConfig && item._addonsConfig.length > 0)) {
         if (onClick) onClick();
       } else {
         addToCart(item);
       }
     } else {
-      if (hasVariants) {
+      if (hasVariants || (item._addonsConfig && item._addonsConfig.length > 0)) {
         if (onClick) onClick();
       } else {
         cart.filter(c => c.id === item.id).forEach(c => {
-          removeFromCart(item, null, c.quantity);
+          removeFromCart(item, c.variantName ? {name: c.variantName} : null, c.quantity, c.selectedAddons || []);
         });
       }
     }
   };
 
   return (
-    <div onClick={onClick} className="bg-white rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100 p-2.5 flex flex-col relative cursor-pointer active:scale-[0.98] transition-transform">
+    <div onClick={onClick} className="bg-white rounded-[20px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-100 p-2.5 flex flex-col h-full relative cursor-pointer active:scale-[0.98] transition-transform">
       {/* Top Right Checkbox / Plus */}
       <button
         onClick={handleToggle}
@@ -83,16 +83,28 @@ export default function MenuCard({ item, onClick }) {
           </div>
         )}
 
+        {item._offer && (
+          <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-br-xl z-20 shadow-sm">
+            {item._offer.discountType === 'percentage' 
+              ? `${item._offer.discountValue}% OFF` 
+              : `₹${item._offer.discountValue} OFF`}
+          </div>
+        )}
+
         {/* Floating Quantity Control (only when selected) */}
         {quantity > 0 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-md flex items-center h-7 px-1 gap-3">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (hasVariants) {
+                if (hasVariants || (item._addonsConfig && item._addonsConfig.length > 0)) {
                   if (onClick) onClick();
                 } else {
-                  removeFromCart(item);
+                  // Direct decrease for simple items, remove just 1 from the first mapped cart row
+                  const targetRow = cart.find(c => c.id === item.id);
+                  if (targetRow) {
+                    removeFromCart(item, targetRow.variantName ? {name: targetRow.variantName} : null, 1, targetRow.selectedAddons || []);
+                  }
                 }
               }}
               className="text-gray-600 font-bold w-5 h-5 flex items-center justify-center active:scale-95"
@@ -107,7 +119,7 @@ export default function MenuCard({ item, onClick }) {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (hasVariants) {
+                if (hasVariants || (item._addonsConfig && item._addonsConfig.length > 0)) {
                   if (onClick) onClick();
                 } else {
                   addToCart(item);
@@ -155,9 +167,16 @@ export default function MenuCard({ item, onClick }) {
           </p>
         )}
         <div className="mt-auto pt-2">
-          <span className="font-bold text-[13px] text-gray-900">
-            ₹ {item.price}
-          </span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="font-bold text-[14px] text-gray-900 tracking-tight">
+              ₹{item._discountedPrice ?? item.price}
+            </span>
+            {item._offer && (
+              <span className="text-[11px] text-gray-400 font-medium line-through">
+                ₹{item.price}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

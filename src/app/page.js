@@ -7,7 +7,14 @@ import PayBillModal from "@/components/PayBillModal";
 import ProductModal from "@/components/ProductModal";
 import ViewOrderModal from "@/components/ViewOrderModal";
 import { useCart } from "@/context/CartContext";
-import { categoriesService, menuService, tablesService, restaurantService } from "@/libs/firestore";
+import {
+  addonsService,
+  categoriesService,
+  menuService,
+  offersService,
+  restaurantService,
+  tablesService,
+} from "@/libs/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -122,6 +129,8 @@ function MenuPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [categories, setCategories] = useState([]);
   const [restaurantData, setRestaurantData] = useState(null);
+  const [offersData, setOffersData] = useState([]);
+  const [addonsData, setAddonsData] = useState([]);
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -134,12 +143,15 @@ function MenuPage() {
 
     const load = async () => {
       try {
-        const [cats, items, isTableValid, rData] = await Promise.all([
-          categoriesService.getAllCategories(rawId),
-          menuService.getAllMenuItems(rawId),
-          tablesService.validateTable(rawId, rawTable),
-          restaurantService.getRestaurantData(rawId),
-        ]);
+        const [cats, items, isTableValid, rData, offers, allAddons] =
+          await Promise.all([
+            categoriesService.getAllCategories(rawId),
+            menuService.getAllMenuItems(rawId),
+            tablesService.validateTable(rawId, rawTable),
+            restaurantService.getRestaurantData(rawId),
+            offersService.getAllOffers(rawId),
+            addonsService.getAllAddons(rawId),
+          ]);
 
         if (!isTableValid) {
           setErrorMsg(
@@ -157,8 +169,76 @@ function MenuPage() {
           return;
         }
 
+        // --- Data Augmentation: Inject Offers and Linked Addons ---
+        const activeOffers = (offers || []).filter(
+          (o) => o.status === "active",
+        );
+        const activeAddons = (allAddons || []).filter(
+          (a) => a.status === "active",
+        );
+        const addonMap = new Map(activeAddons.map((a) => [a.id, a]));
+
+        let enrichedItems = items.map((item) => {
+          // Resolve linked Addons
+          const itemAddons = (item.addons || [])
+            .map((id) => addonMap.get(id))
+            .filter(Boolean);
+
+          // Resolve matched Offer
+          const matchingOffer = activeOffers.find((o) =>
+            o.applicableItems?.includes(item.id),
+          );
+          let discountedPrice = item.price;
+
+          if (matchingOffer) {
+            if (matchingOffer.discountType === "percentage") {
+              discountedPrice =
+                item.price - item.price * (matchingOffer.discountValue / 100);
+            } else if (matchingOffer.discountType === "fixed") {
+              discountedPrice = Math.max(
+                0,
+                item.price - matchingOffer.discountValue,
+              );
+            }
+          }
+
+          return {
+            ...item,
+            _offer: matchingOffer || null,
+            _discountedPrice: discountedPrice,
+            _addonsConfig: itemAddons,
+          };
+        });
+
+        // Bubble items with offers to the top
+        enrichedItems.sort((a, b) => {
+          if (a._offer && !b._offer) return -1;
+          if (!a._offer && b._offer) return 1;
+          return 0; // maintain relative order
+        });
+
+        let standaloneAddons = [];
+        if (activeAddons.length > 0) {
+          standaloneAddons = activeAddons.map((addon) => ({
+            id: `addon-${addon.id}`,
+            name: addon.name,
+            price: addon.price,
+            description: addon.description,
+            category: "Add-ons",
+            isVeg: true,
+            status: "active",
+            isStandaloneAddon: true,
+            _parentAddonId: addon.id,
+            _addonsConfig: [],
+            _discountedPrice: addon.price,
+            _offer: null,
+          }));
+        }
+
         setCategories(cats);
-        setMenuItems(items);
+        setMenuItems(enrichedItems);
+        setOffersData(activeOffers);
+        setAddonsData(standaloneAddons);
         setRestaurantData(rData);
         setStatus("ready");
       } catch (e) {
@@ -197,7 +277,9 @@ function MenuPage() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
             <span className="text-3xl">😕</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">Oops!</h1>
+          <h1 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">
+            Oops!
+          </h1>
           <p className="text-[13px] text-gray-600 mb-8 leading-relaxed font-medium">
             {errorMsg}
           </p>
@@ -220,6 +302,8 @@ function MenuPage() {
       cartOpen={cartOpen}
       setCartOpen={setCartOpen}
       restaurantData={restaurantData}
+      offersData={offersData}
+      addonsData={addonsData}
     />
   );
 }
@@ -231,24 +315,54 @@ function MenuContent({
   cartOpen,
   setCartOpen,
   restaurantData,
+  offersData,
+  addonsData,
 }) {
-  const { menuItems, cart, itemCount, grandTotal, placedOrders, otp, tableNumber } =
-    useCart();
+  const {
+    menuItems,
+    cart,
+    itemCount,
+    grandTotal,
+    placedOrders,
+    otp,
+    tableNumber,
+  } = useCart();
   const [vegOnly, setVegOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [viewOrderOpen, setViewOrderOpen] = useState(false);
   const [payBillOpen, setPayBillOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Pre-filter valid offers that actually have menu items attached to prevent dead-space UI bugs
+  const validOffers = (offersData || []).filter((offer) =>
+    menuItems.some(
+      (i) => i._offer && i._offer.id === offer.id && i.status !== "inactive",
+    ),
+  );
 
   // Filter logic
   let filteredItems =
     activeCategory === "ALL"
       ? menuItems
-      : menuItems.filter((i) => i.category === activeCategory);
+      : activeCategory.startsWith("OFFER_")
+        ? menuItems.filter(
+            (i) =>
+              i._offer && i._offer.id === activeCategory.replace("OFFER_", ""),
+          )
+        : menuItems.filter((i) => i.category === activeCategory);
 
   filteredItems = filteredItems.filter((i) => i.status !== "inactive");
 
   if (vegOnly) {
-    filteredItems = filteredItems.filter((i) => i.isVeg === true || i.isVeg === "true");
+    filteredItems = filteredItems.filter(
+      (i) => i.isVeg === true || i.isVeg === "true",
+    );
+  }
+
+  if (searchQuery.trim() !== "") {
+    filteredItems = filteredItems.filter((i) =>
+      i.name.toLowerCase().includes(searchQuery.toLowerCase().trim()),
+    );
   }
 
   const hasNewItems = itemCount > 0;
@@ -273,13 +387,25 @@ function MenuContent({
             {/* Logo */}
             <div>
               {restaurantData?.logo ? (
-                <img src={restaurantData.logo} alt={restaurantData?.name || "Restaurant Logo"} className="h-[42px] object-contain max-w-[150px]" />
+                <img
+                  src={restaurantData.logo}
+                  alt={restaurantData?.name || "Restaurant Logo"}
+                  className="h-[42px] object-contain max-w-[150px]"
+                />
               ) : (
                 <h1 className="text-3xl font-black italic tracking-tighter text-gray-900 leading-none">
                   {restaurantData?.name ? (
-                    <>{restaurantData.name.split(" ")[0]}<br />{restaurantData.name.split(" ").slice(1).join(" ")}</>
+                    <>
+                      {restaurantData.name.split(" ")[0]}
+                      <br />
+                      {restaurantData.name.split(" ").slice(1).join(" ")}
+                    </>
                   ) : (
-                    <>la<br />nena</>
+                    <>
+                      la
+                      <br />
+                      nena
+                    </>
                   )}
                 </h1>
               )}
@@ -307,6 +433,12 @@ function MenuContent({
                 onChange={(e) => setActiveCategory(e.target.value)}
               >
                 <option value="ALL">All Categories</option>
+                {offersData &&
+                  offersData.map((o) => (
+                    <option key={`offer-${o.id}`} value={`OFFER_${o.id}`}>
+                      Offer: {o.name}
+                    </option>
+                  ))}
                 {categories.map((c) => (
                   <option key={c.id} value={c.name}>
                     {c.name}
@@ -348,15 +480,138 @@ function MenuContent({
         </div>
       </div>
 
+      {/* Global Search Bar */}
+      <div className="px-5 mt-4 mb-6">
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-gray-400"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+          <input
+            type="text"
+            className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-[15px] font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/10 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all"
+            placeholder="Search dishes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Offers Carousels */}
+      {searchQuery.trim() === "" &&
+        activeCategory === "ALL" &&
+        validOffers.length > 0 && (
+          <>
+            <hr className="border-t-[6px] border-[#f4f3ef]" />
+            <div className="py-8 flex flex-col gap-8">
+              {validOffers.map((offer) => {
+                const offerItems = menuItems.filter(
+                  (i) =>
+                    i._offer &&
+                    i._offer.id === offer.id &&
+                    i.status !== "inactive",
+                );
+                if (offerItems.length === 0) return null;
+
+                return (
+                  <div key={offer.id} className="w-full mx-4">
+                    <div className="px-5 flex items-end justify-between mb-3">
+                      <h2 className="text-[17px] font-black text-gray-900 tracking-tight leading-none">
+                        {offer.name}
+                      </h2>
+                      <button
+                        onClick={() => setActiveCategory(`OFFER_${offer.id}`)}
+                        className="text-[#059669] text-xs font-bold active:scale-95 transition-transform"
+                      >
+                        View All
+                      </button>
+                    </div>
+                    <div
+                      className="pl-5 pr-5 pb-2 flex gap-3 overflow-x-auto snap-x hide-scrollbar [&::-webkit-scrollbar]:hidden"
+                      style={{ scrollbarWidth: "none" }}
+                    >
+                      {offerItems.slice(0, 5).map((item) => (
+                        <div
+                          key={`carousel-${item.id}`}
+                          className="shrink-0 snap-start"
+                          style={{
+                            width: "min(calc(50vw - 26px), 198px)",
+                            height: "min(calc(50vw + 60px), 258px)",
+                          }}
+                        >
+                          <MenuCard
+                            item={item}
+                            onClick={() => setSelectedProduct(item)}
+                          />
+                        </div>
+                      ))}
+                      {offerItems.length > 5 && (
+                        <div
+                          className="shrink-0 snap-center flex items-center justify-center bg-white/50 rounded-2xl border border-gray-100/50 ml-1 shadow-sm h-full min-h-[220px]"
+                          style={{ width: "min(calc(50vw - 26px), 198px)" }}
+                        >
+                          <button
+                            onClick={() =>
+                              setActiveCategory(`OFFER_${offer.id}`)
+                            }
+                            className="flex flex-col items-center gap-2 text-[#059669] active:opacity-70 transition-opacity"
+                          >
+                            <div className="w-12 h-12 rounded-full bg-[#059669]/10 flex items-center justify-center border border-[#059669]/20">
+                              <svg
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                              </svg>
+                            </div>
+                            <span className="text-[12px] font-bold">
+                              See More
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <hr className="border-t-[6px] border-[#f4f3ef] mt-6" />
+          </>
+        )}
+
       {/* Title & Selected count */}
-      <div className="px-5 pt-4 pb-2 flex items-center justify-between">
-        <h2 className="text-[15px] font-bold text-black">
-          Select one or more dishes{itemCount === 0 && " to order"}
+      <div className="relative z-10 px-5 pt-8 pb-3 flex items-center justify-between">
+        <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
+          {searchQuery.trim() !== ""
+            ? "Search Results"
+            : activeCategory !== "ALL"
+              ? activeCategory.startsWith("OFFER_")
+                ? "Offer Items"
+                : activeCategory
+              : "All Dishes"}
         </h2>
       </div>
 
       {/* Menu grid */}
-      <div className="px-5 pt-2">
+      <div className="relative z-10 px-5 pt-2">
         {filteredItems.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-gray-400">
             <span className="text-4xl mb-3">🍽️</span>
@@ -365,18 +620,40 @@ function MenuContent({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredItems.map((item) => (
-              <MenuCard key={item.id} item={item} onClick={() => setSelectedProduct(item)} />
+              <MenuCard
+                key={item.id}
+                item={item}
+                onClick={() => setSelectedProduct(item)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {/* ── Dynamic Bottom Action Bar ─────────────────────────────────────────
-          State 1: hasNewItems && !hasPreviousOrders → standard cart summary
-          State 2: hasNewItems && hasPreviousOrders  → "Add To My Order →"
-          State 3: !hasNewItems && hasPreviousOrders → "View My Order" + "Pay Bill →"
-          State 4: nothing                           → hidden
-      ──────────────────────────────────────────────────────────────────────── */}
+      {/* Standalone Add-ons Section */}
+      {searchQuery.trim() === "" &&
+        activeCategory === "ALL" &&
+        addonsData &&
+        addonsData.length > 0 && (
+          <div className="relative z-10 mt-2 border-[#f4f3ef] pt-8">
+            <div className="px-5 flex items-end justify-between mb-4">
+              <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
+                Extra Add-ons
+              </h2>
+            </div>
+            <div className="px-5 pb-8">
+              <div className="grid grid-cols-2 gap-3">
+                {addonsData.map((addon) => (
+                  <MenuCard
+                    key={addon.id}
+                    item={addon}
+                    onClick={() => setSelectedProduct(addon)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* State 1 – fresh cart, no prior orders */}
       {hasNewItems && !hasPreviousOrders && (
@@ -457,7 +734,12 @@ function MenuContent({
         <ViewOrderModal onClose={() => setViewOrderOpen(false)} />
       )}
       {payBillOpen && <PayBillModal onClose={() => setPayBillOpen(false)} />}
-      {selectedProduct && <ProductModal item={selectedProduct} onClose={() => setSelectedProduct(null)} />}
+      {selectedProduct && (
+        <ProductModal
+          item={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
     </div>
   );
 }
