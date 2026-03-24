@@ -7,7 +7,7 @@ import CartItem from "./CartItem";
 import CustomerDetailsForm from "./CustomerDetailsForm";
 import Loader from "./Loader";
 
-export default function CartModal({ onClose }) {
+export default function CartModal({ onClose, adjustments }) {
   const {
     cart,
     subtotal,
@@ -37,7 +37,7 @@ export default function CartModal({ onClose }) {
   // Totals for previously placed orders
   const previousTotal = placedOrders.reduce(
     (acc, o) => acc + (o.grandTotal || 0),
-    0
+    0,
   );
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -84,16 +84,20 @@ export default function CartModal({ onClose }) {
         restaurantId,
         effectiveSessionId,
         sessionMeta,
-        orderPayload
+        orderPayload,
       );
 
       // Record this batch locally
-      addPlacedOrder({ ...orderPayload, orderId, placedAt: new Date().toISOString() });
+      addPlacedOrder({
+        ...orderPayload,
+        orderId,
+        placedAt: new Date().toISOString(),
+      });
       clearCart();
 
       // Navigate to feedback
       router.push(
-        `/feedback?otp=${effectiveOtp}&restaurantId=${restaurantId}&tableno=${tableNumber}`
+        `/feedback?otp=${effectiveOtp}&restaurantId=${restaurantId}&tableno=${tableNumber}`,
       );
     } catch (e) {
       console.error("Error placing order:", e);
@@ -107,8 +111,8 @@ export default function CartModal({ onClose }) {
     step === "details"
       ? "Fill Your Details To Order"
       : step === "review"
-      ? "Review Your Order"
-      : "Placing Order…";
+        ? "Review Your Order"
+        : "Placing Order…";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden animate-slide-up">
@@ -116,18 +120,36 @@ export default function CartModal({ onClose }) {
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white z-10 shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => (step === "review" && !hasOrdered ? setStep("details") : onClose())}
+            onClick={() =>
+              step === "review" && !hasOrdered ? setStep("details") : onClose()
+            }
             className="text-gray-800 active:scale-95 transition-transform"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-          <h2 className="text-[15px] font-semibold text-gray-800">{headerTitle}</h2>
+          <h2 className="text-[15px] font-semibold text-gray-800">
+            {headerTitle}
+          </h2>
         </div>
         <div className="text-right text-[10px] text-gray-800 font-medium">
-          <p>Table No. <span className="font-bold text-xs">{tableNumber ?? "—"}</span></p>
-          <p>Sesh. <span className="font-bold text-xs">{otp ?? "—"}</span></p>
+          <p>
+            Table No.{" "}
+            <span className="font-bold text-xs">{tableNumber ?? "—"}</span>
+          </p>
+          <p>
+            Sesh. <span className="font-bold text-xs">{otp ?? "—"}</span>
+          </p>
         </div>
       </div>
 
@@ -144,7 +166,9 @@ export default function CartModal({ onClose }) {
         {step === "loading" && (
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <Loader size="lg" />
-            <p className="text-gray-500 text-sm font-medium">Placing your order…</p>
+            <p className="text-gray-500 text-sm font-medium">
+              Placing your order…
+            </p>
           </div>
         )}
 
@@ -171,15 +195,25 @@ export default function CartModal({ onClose }) {
                         key={`prev-${oi}-${ii}`}
                         className="flex items-center justify-between text-sm text-gray-600"
                       >
-                        <span>{item.name} × {item.quantity}</span>
-                        <span>₹ {(item.price * item.quantity).toLocaleString("en-IN")}</span>
+                        <span>
+                          {item.name} × {item.quantity}
+                        </span>
+                        <span>
+                          ₹{" "}
+                          {(item.price * item.quantity).toLocaleString("en-IN")}
+                        </span>
                       </div>
-                    ))
+                    )),
                   )}
                 </div>
                 <div className="flex justify-between text-xs font-semibold text-gray-500 mt-2 pt-2 border-t border-dashed border-gray-200">
                   <span>Previous total (incl. GST)</span>
-                  <span>₹ {previousTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</span>
+                  <span>
+                    ₹{" "}
+                    {previousTotal.toLocaleString("en-IN", {
+                      minimumFractionDigits: 0,
+                    })}
+                  </span>
                 </div>
               </div>
             )}
@@ -208,16 +242,41 @@ export default function CartModal({ onClose }) {
         <div className="shrink-0 bg-white px-5 pt-4 pb-6 border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm text-gray-500">Subtotal</span>
-            <span className="text-sm text-gray-700">₹ {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}</span>
+            <span className="text-sm text-gray-700">
+              ₹ {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+            </span>
           </div>
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm text-gray-500">GST (5%)</span>
-            <span className="text-sm text-gray-700">₹ {tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            <span className="text-sm text-gray-700">
+              ₹ {tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
           </div>
+          {adjustments &&
+            adjustments.breakdown.map((adj) => (
+              <div
+                key={adj.id}
+                className="flex items-center justify-between mb-1"
+              >
+                <span className="text-sm text-gray-500">{adj.name}</span>
+                <span className="text-sm text-gray-700">
+                  {adj.amount > 0
+                    ? `+₹ ${adj.amount.toLocaleString("en-IN")}`
+                    : `-₹ ${Math.abs(adj.amount).toLocaleString("en-IN")}`}
+                </span>
+              </div>
+            ))}
           <div className="flex items-center justify-between mb-4">
             <span className="text-[17px] font-bold text-gray-800">Total</span>
             <span className="text-[17px] font-bold text-gray-900 tracking-tight">
-              ₹ {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+              ₹{" "}
+              {adjustments
+                ? adjustments.adjustedTotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                  })
+                : grandTotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                  })}
             </span>
           </div>
           <button

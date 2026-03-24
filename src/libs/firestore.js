@@ -333,3 +333,18 @@ export const offersService = {
     }
   },
 };
+
+// ─── Adjustments ──────────────────────────────────────────────────────────────
+export const adjustmentsService = {
+  async getAllAdjustments(restaurantId) {
+    if (!restaurantId) return [];
+    try {
+      const q = query(tenantCol(restaurantId, "adjustments"), orderBy("name", "asc"));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch (e) {
+      console.error("Error fetching adjustments:", e);
+      return [];
+    }
+  },
+};

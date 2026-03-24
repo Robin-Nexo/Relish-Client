@@ -7,8 +7,10 @@ import PayBillModal from "@/components/PayBillModal";
 import ProductModal from "@/components/ProductModal";
 import ViewOrderModal from "@/components/ViewOrderModal";
 import { useCart } from "@/context/CartContext";
+import { calculateAdjustments } from "@/libs/adjustments";
 import {
   addonsService,
+  adjustmentsService,
   categoriesService,
   menuService,
   offersService,
@@ -131,6 +133,7 @@ function MenuPage() {
   const [restaurantData, setRestaurantData] = useState(null);
   const [offersData, setOffersData] = useState([]);
   const [addonsData, setAddonsData] = useState([]);
+  const [adjustmentsData, setAdjustmentsData] = useState([]);
   const [activeCategory, setActiveCategory] = useState("ALL");
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -143,15 +146,23 @@ function MenuPage() {
 
     const load = async () => {
       try {
-        const [cats, items, isTableValid, rData, offers, allAddons] =
-          await Promise.all([
-            categoriesService.getAllCategories(rawId),
-            menuService.getAllMenuItems(rawId),
-            tablesService.validateTable(rawId, rawTable),
-            restaurantService.getRestaurantData(rawId),
-            offersService.getAllOffers(rawId),
-            addonsService.getAllAddons(rawId),
-          ]);
+        const [
+          cats,
+          items,
+          isTableValid,
+          rData,
+          offers,
+          allAddons,
+          adjustments,
+        ] = await Promise.all([
+          categoriesService.getAllCategories(rawId),
+          menuService.getAllMenuItems(rawId),
+          tablesService.validateTable(rawId, rawTable),
+          restaurantService.getRestaurantData(rawId),
+          offersService.getAllOffers(rawId),
+          addonsService.getAllAddons(rawId),
+          adjustmentsService.getAllAdjustments(rawId),
+        ]);
 
         if (!isTableValid) {
           setErrorMsg(
@@ -239,6 +250,7 @@ function MenuPage() {
         setMenuItems(enrichedItems);
         setOffersData(activeOffers);
         setAddonsData(standaloneAddons);
+        setAdjustmentsData(adjustments || []);
         setRestaurantData(rData);
         setStatus("ready");
       } catch (e) {
@@ -304,6 +316,7 @@ function MenuPage() {
       restaurantData={restaurantData}
       offersData={offersData}
       addonsData={addonsData}
+      adjustmentsData={adjustmentsData}
     />
   );
 }
@@ -317,6 +330,7 @@ function MenuContent({
   restaurantData,
   offersData,
   addonsData,
+  adjustmentsData,
 }) {
   const {
     menuItems,
@@ -332,6 +346,7 @@ function MenuContent({
   const [viewOrderOpen, setViewOrderOpen] = useState(false);
   const [payBillOpen, setPayBillOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [adjustments, setAdjustments] = useState(null);
 
   // Pre-filter valid offers that actually have menu items attached to prevent dead-space UI bugs
   const validOffers = (offersData || []).filter((offer) =>
@@ -373,6 +388,16 @@ function MenuContent({
     (acc, o) => acc + (o.grandTotal || 0),
     0,
   );
+
+  useEffect(() => {
+    if (grandTotal > 0 && adjustmentsData) {
+      const adjustmentResult = calculateAdjustments(
+        grandTotal,
+        adjustmentsData,
+      );
+      setAdjustments(adjustmentResult);
+    }
+  }, [grandTotal, adjustmentsData]);
 
   return (
     <div className="max-w-md mx-auto min-h-svh relative pb-28 bg-[#fffdfa] bg-food-pattern bg-repeat">
@@ -664,7 +689,13 @@ function MenuContent({
             </span>
             <span className="text-base font-bold text-gray-900 tracking-tight">
               ₹{" "}
-              {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+              {adjustments
+                ? adjustments.adjustedTotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                  })
+                : grandTotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                  })}
             </span>
           </div>
           <button
@@ -698,7 +729,13 @@ function MenuContent({
             </span>
             <span className="text-base font-bold text-gray-900 tracking-tight">
               ₹{" "}
-              {grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+              {adjustments
+                ? adjustments.adjustedTotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                  })
+                : grandTotal.toLocaleString("en-IN", {
+                    minimumFractionDigits: 0,
+                  })}
             </span>
           </div>
           <button
@@ -729,7 +766,12 @@ function MenuContent({
       )}
 
       {/* Modals */}
-      {cartOpen && <CartModal onClose={() => setCartOpen(false)} />}
+      {cartOpen && (
+        <CartModal
+          onClose={() => setCartOpen(false)}
+          adjustments={adjustments}
+        />
+      )}
       {viewOrderOpen && (
         <ViewOrderModal onClose={() => setViewOrderOpen(false)} />
       )}
