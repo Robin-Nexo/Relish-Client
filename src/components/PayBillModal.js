@@ -31,6 +31,31 @@ export default function PayBillModal({ onClose }) {
     0,
   );
 
+  // Group items by person
+  const personTotals = {};
+  placedOrders.forEach((order) => {
+    const person = order.orderedBy || "Table";
+    if (!personTotals[person]) {
+      personTotals[person] = { items: [], total: 0 };
+    }
+
+    order.items.forEach((item) => {
+      const existing = personTotals[person].items.find((i) => i.name === item.name);
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.total += item.price * item.quantity;
+      } else {
+        personTotals[person].items.push({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+        });
+      }
+      personTotals[person].total += item.price * item.quantity;
+    });
+  });
+
   const handlePayBill = async () => {
     setStatus("requesting");
     try {
@@ -114,18 +139,30 @@ export default function PayBillModal({ onClose }) {
           <div className="space-y-6">
             {/* Bill breakdown */}
             <div className="bg-gray-50 rounded-2xl p-5 space-y-3">
-              {placedOrders.map((order, oi) => (
-                <div
-                  key={oi}
-                  className="flex justify-between text-sm text-gray-600"
-                >
-                  <span>Order {oi + 1}</span>
-                  <span>
-                    ₹{" "}
-                    {(order.grandTotal || 0).toLocaleString("en-IN", {
-                      minimumFractionDigits: 0,
-                    })}
-                  </span>
+              {Object.entries(personTotals).map(([person, data], idx) => (
+                <div key={idx} className="mb-4">
+                  <p className="font-bold text-[14px] text-gray-800 border-b border-gray-200 pb-1 mb-2">
+                    {person}
+                  </p>
+                  {data.items.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between text-sm text-gray-600 mb-1"
+                    >
+                      <span className="truncate pr-4">
+                        {item.name} <span className="text-xs text-gray-400">×{item.quantity}</span>
+                      </span>
+                      <span className="shrink-0">
+                        ₹ {item.total.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-[11px] font-semibold text-gray-400 mt-2">
+                    <span>Items Subtotal</span>
+                    <span>
+                      ₹ {data.total.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                    </span>
+                  </div>
                 </div>
               ))}
               <div className="border-t border-gray-200 pt-3 space-y-1">

@@ -2,7 +2,7 @@
 import { useCart } from "@/context/CartContext";
 import { sessionService } from "@/libs/firestore";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CartItem from "./CartItem";
 import CustomerDetailsForm from "./CustomerDetailsForm";
 import Loader from "./Loader";
@@ -23,14 +23,22 @@ export default function CartModal({ onClose, adjustments }) {
     addPlacedOrder,
     customerInfo,
     setCustomerInfo,
+    joinedSession,
   } = useCart();
 
   const router = useRouter();
 
-  // Determine starting step: skip details if we already have customer info
-  const hasOrdered = placedOrders.length > 0;
-  const [step, setStep] = useState(hasOrdered ? "review" : "details");
+  // Determine starting step per-device: ask for details only if this device
+  // has not captured customerInfo yet.
+  const hasCustomerInfo = !!customerInfo;
+  const [step, setStep] = useState(hasCustomerInfo ? "review" : "details");
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    // If customerInfo is restored asynchronously (localStorage), ensure we
+    // start on review rather than details.
+    if (customerInfo && step === "details") setStep("review");
+  }, [customerInfo, step]);
 
   const cartItems = cart.filter((i) => i.quantity > 0);
 
@@ -39,6 +47,15 @@ export default function CartModal({ onClose, adjustments }) {
     (acc, o) => acc + (o.grandTotal || 0),
     0,
   );
+
+  const deviceName = customerInfo
+    ? `${customerInfo.firstName}${
+        customerInfo.lastName ? " " + customerInfo.lastName : ""
+      }`
+    : "";
+  const hasPlacedByDevice = deviceName
+    ? placedOrders.some((o) => o.orderedBy === deviceName)
+    : false;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleDetailsSubmit = (info) => {
@@ -63,8 +80,9 @@ export default function CartModal({ onClose, adjustments }) {
     const sessionMeta = {
       tableNumber,
       otp: effectiveOtp,
-      customerName: `${customerInfo.firstName} ${customerInfo.lastName}`,
-      customerPhone: customerInfo.phone,
+      customerName: `${customerInfo.firstName}${customerInfo.lastName ? " " + customerInfo.lastName : ""}`,
+      customerPhone: customerInfo.phone || "",
+      numberOfPeople: customerInfo.numberOfPeople || "1",
     };
 
     const orderPayload = {
@@ -91,6 +109,7 @@ export default function CartModal({ onClose, adjustments }) {
       addPlacedOrder({
         ...orderPayload,
         orderId,
+        orderedBy: sessionMeta.customerName,
         placedAt: new Date().toISOString(),
       });
       clearCart();
@@ -121,7 +140,9 @@ export default function CartModal({ onClose, adjustments }) {
         <div className="flex items-center gap-3">
           <button
             onClick={() =>
-              step === "review" && !hasOrdered ? setStep("details") : onClose()
+              step === "review" && !hasPlacedByDevice
+                ? setStep("details")
+                : onClose()
             }
             className="text-gray-800 active:scale-95 transition-transform"
           >
@@ -175,7 +196,7 @@ export default function CartModal({ onClose, adjustments }) {
         {/* Customer Details */}
         {step === "details" && (
           <div className="p-5">
-            <CustomerDetailsForm onSubmit={handleDetailsSubmit} />
+            <CustomerDetailsForm onSubmit={handleDetailsSubmit} isJoined={joinedSession} />
           </div>
         )}
 
@@ -184,28 +205,43 @@ export default function CartModal({ onClose, adjustments }) {
           <div className="p-5 flex flex-col gap-6">
             {/* Previously ordered items */}
             {placedOrders.length > 0 && (
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
                   Previously Ordered
                 </p>
-                <div className="space-y-2 opacity-70">
-                  {placedOrders.map((order, oi) =>
-                    order.items.map((item, ii) => (
-                      <div
-                        key={`prev-${oi}-${ii}`}
-                        className="flex items-center justify-between text-sm text-gray-600"
-                      >
-                        <span>
-                          {item.name} × {item.quantity}
-                        </span>
-                        <span>
-                          ₹{" "}
-                          {(item.price * item.quantity).toLocaleString("en-IN")}
-                        </span>
+
+                <div className="space-y-4 opacity-70">
+                  {placedOrders.map((order, oi) => (
+                    <div
+                      key={order.id || oi}
+                      className="bg-gray-50 border border-gray-100 rounded-2xl p-3"
+                    >
+                      <p className="text-[12px] font-bold text-gray-500 mb-2">
+                        Round {order.roundNumber ?? oi + 1}
+                        {order.orderedBy ? ` - ${order.orderedBy}` : ""}
+                      </p>
+                      <div className="space-y-2">
+                        {order.items.map((item, ii) => (
+                          <div
+                            key={`${order.id || oi}-${ii}`}
+                            className="flex items-center justify-between text-sm text-gray-600"
+                          >
+                            <span>
+                              {item.name} × {item.quantity}
+                            </span>
+                            <span>
+                              ₹{" "}
+                              {(item.price * item.quantity).toLocaleString(
+                                "en-IN",
+                              )}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    )),
-                  )}
+                    </div>
+                  ))}
                 </div>
+
                 <div className="flex justify-between text-xs font-semibold text-gray-500 mt-2 pt-2 border-t border-dashed border-gray-200">
                   <span>Previous total (incl. GST)</span>
                   <span>
@@ -284,7 +320,7 @@ export default function CartModal({ onClose, adjustments }) {
             disabled={cartItems.length === 0}
             className="w-full bg-[#059669] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
           >
-            {hasOrdered ? "Add To My Order →" : "Place Order"}
+            {hasPlacedByDevice ? "Add To My Order →" : "Place Order"}
           </button>
         </div>
       )}

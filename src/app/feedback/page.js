@@ -1,65 +1,63 @@
 "use client";
 
 import Loader from "@/components/Loader";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 function FeedbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const otp = searchParams.get("otp") || "---";
+  const otp = searchParams.get("otp");
   const restaurantId = searchParams.get("restaurantId");
-  const tableno = searchParams.get("tableno");
-
-  const handleGoToMenu = () => {
-    if (restaurantId && tableno) {
-      router.push(`/?restaurantId=${restaurantId}&tableno=${tableno}`);
-    } else {
-      router.push("/");
-    }
-  };
+  const tableNumber = searchParams.get("tableno");
 
   return (
-    <div className="max-w-md mx-auto min-h-svh flex flex-col relative bg-[#fffdfa] bg-food-pattern bg-repeat">
-      {/* Gradient to fade pattern at the bottom */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-white/20 via-white/80 to-white via-[25vh] to-[45vh] z-0" />
+    <div className="max-w-md mx-auto min-h-svh bg-white px-6 flex flex-col items-center justify-center text-center">
+      <div className="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mb-8 animate-bounce">
+        <svg
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#059669"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center pt-24 px-6 pb-8">
-        {/* Circle Image */}
-        <div className="w-45 h-45 rounded-full border-4 border-[#aba182] overflow-hidden shadow-lg mb-8">
-          <Image
-            src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=400&auto=format&fit=crop"
-            alt="Delicious Food"
-            width={180}
-            height={180}
-            className="w-full h-full object-cover"
-            unoptimized
-          />
+      <h1 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">
+        Order Placed!
+      </h1>
+      <p className="text-[15px] text-gray-500 mb-10 leading-relaxed">
+        Your order has been sent to the kitchen.
+        <br />
+        Sit back and relax while we prepare your meal.
+      </p>
+
+      <div className="w-full bg-gray-50 rounded-3xl p-6 mb-10 space-y-4">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-400 font-medium">Table No.</span>
+          <span className="text-lg font-bold text-gray-900">{tableNumber}</span>
         </div>
-
-        {/* OTP Text */}
-        <h1 className="text-[60px] font-bold text-black leading-none tracking-tight">{otp}</h1>
-
-        {/* Status */}
-        <h2 className="text-[17px] font-bold text-black mt-6">Order Placed</h2>
-
-        {/* Description */}
-        <p className="text-[13px] text-gray-800 text-center mt-3 px-6 leading-relaxed font-medium">
-          Someone will reach you shortly. Please give them the above code.
-        </p>
-
-        {/* Bottom Button */}
-        <div className="mt-auto pt-10 w-full">
-          <button
-            onClick={handleGoToMenu}
-            className="w-full bg-[#059669] text-white font-semibold text-[15px] py-4 rounded-xl active:scale-95 transition-transform shadow-md"
-          >
-            Go To Menu
-          </button>
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-400 font-medium">Session OTP</span>
+          <span className="text-lg font-bold text-[#059669] tracking-widest">
+            {otp}
+          </span>
         </div>
       </div>
+
+      <button
+        onClick={() =>
+          router.push(`/?restaurantId=${restaurantId}&tableno=${tableNumber}`)
+        }
+        className="w-full bg-[#059669] text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-100 active:scale-95 transition-transform"
+      >
+        Order More Items
+      </button>
     </div>
   );
 }

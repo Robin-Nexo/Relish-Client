@@ -16,7 +16,7 @@ export default function ViewOrderModal({ onClose }) {
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-          <h2 className="text-[15px] font-semibold text-gray-800">My Orders</h2>
+          <h2 className="text-[15px] font-semibold text-gray-800">Table Orders</h2>
         </div>
         <div className="text-right text-[10px] text-gray-800 font-medium">
           <p>Table No. <span className="font-bold text-xs">{tableNumber ?? "—"}</span></p>
@@ -34,9 +34,10 @@ export default function ViewOrderModal({ onClose }) {
         ) : (
           <div className="space-y-6">
             {placedOrders.map((order, oi) => (
-              <div key={oi} className="bg-gray-50 rounded-2xl p-4">
+              <div key={order.id || oi} className="bg-gray-50 rounded-2xl p-4">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  Order {oi + 1}
+                  Round {order.roundNumber ?? oi + 1}
+                  {order.orderedBy ? ` - ${order.orderedBy}` : ""}
                 </p>
                 <div className="space-y-2">
                   {order.items.map((item, ii) => (

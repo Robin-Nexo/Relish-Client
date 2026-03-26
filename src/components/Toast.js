@@ -6,9 +6,13 @@ export default function Toast({ message, duration = 2500 }) {
 
   useEffect(() => {
     if (!message) return;
-    setVisible(true);
+    // Defer state updates to satisfy strict eslint rules about setState in effect bodies.
+    const t0 = setTimeout(() => setVisible(true), 0);
     const t = setTimeout(() => setVisible(false), duration);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t0);
+      clearTimeout(t);
+    };
   }, [message, duration]);
 
   if (!visible || !message) return null;

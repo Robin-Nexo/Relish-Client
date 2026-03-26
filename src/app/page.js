@@ -9,13 +9,14 @@ import ViewOrderModal from "@/components/ViewOrderModal";
 import { useCart } from "@/context/CartContext";
 import { calculateAdjustments } from "@/libs/adjustments";
 import {
-  addonsService,
-  adjustmentsService,
-  categoriesService,
-  menuService,
-  offersService,
-  restaurantService,
-  tablesService,
+    addonsService,
+    adjustmentsService,
+    categoriesService,
+    menuService,
+    offersService,
+    restaurantService,
+    sessionService,
+    tablesService,
 } from "@/libs/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -115,13 +116,61 @@ function LandingPage() {
   );
 }
 
+function JoinSessionPage({ existingSessionData, onJoin }) {
+  const [otpInput, setOtpInput] = useState("");
+  const [error, setError] = useState("");
+
+  const handleJoin = () => {
+    if (otpInput === String(existingSessionData.otp)) {
+      onJoin(existingSessionData.id, existingSessionData.otp);
+    } else {
+      setError("Incorrect OTP. Please check with your table and try again.");
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto min-h-svh flex flex-col items-center justify-center bg-[#fffdfa] px-6 text-center">
+      <div className="w-16 h-16 bg-[#059669]/10 rounded-full flex items-center justify-center mb-6">
+        <span className="text-3xl">👋</span>
+      </div>
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Join Table</h2>
+      <p className="text-[14px] text-gray-500 mb-8 leading-relaxed max-w-[260px] mx-auto">
+        An active session already exists for this table. Ask your table for the 4-digit OTP to join them.
+      </p>
+
+      <div className="w-full max-w-xs space-y-4">
+        <input
+          type="text"
+          maxLength={4}
+          placeholder="Enter 4-digit OTP"
+          value={otpInput}
+          onChange={(e) => {
+            setOtpInput(e.target.value.replace(/\D/g, ""));
+            setError("");
+          }}
+          className="w-full text-center text-2xl tracking-[0.5em] font-bold border border-gray-200 rounded-xl px-4 py-4 focus:outline-none focus:border-[#059669] focus:ring-1 focus:ring-[#059669]"
+        />
+        {error && <p className="text-red-500 text-xs font-medium">{error}</p>}
+
+        <button
+          onClick={handleJoin}
+          disabled={otpInput.length !== 4}
+          className="w-full bg-[#059669] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+        >
+          Join Table
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MenuPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawId = searchParams.get("restaurantId");
   const rawTable = searchParams.get("tableno");
 
-  const { setMenuItems, setRestaurantId, setTableNumber, initSession } =
+  const { setMenuItems, setRestaurantId, setTableNumber, initSession, joinExistingSession } =
     useCart();
 
   // Derive the initial status from URL params — avoids calling setState inside an effect
@@ -129,6 +178,7 @@ function MenuPage() {
     rawId && rawTable ? "loading" : "landing",
   );
   const [errorMsg, setErrorMsg] = useState("");
+  const [existingSessionData, setExistingSessionData] = useState(null);
   const [categories, setCategories] = useState([]);
   const [restaurantData, setRestaurantData] = useState(null);
   const [offersData, setOffersData] = useState([]);
@@ -142,7 +192,6 @@ function MenuPage() {
 
     setRestaurantId(rawId);
     setTableNumber(rawTable);
-    initSession();
 
     const load = async () => {
       try {
@@ -154,6 +203,7 @@ function MenuPage() {
           offers,
           allAddons,
           adjustments,
+          activeSession,
         ] = await Promise.all([
           categoriesService.getAllCategories(rawId),
           menuService.getAllMenuItems(rawId),
@@ -162,6 +212,7 @@ function MenuPage() {
           offersService.getAllOffers(rawId),
           addonsService.getAllAddons(rawId),
           adjustmentsService.getAllAdjustments(rawId),
+          sessionService.getActiveSessionForTable(rawId, rawTable),
         ]);
 
         if (!isTableValid) {
@@ -252,7 +303,17 @@ function MenuPage() {
         setAddonsData(standaloneAddons);
         setAdjustmentsData(adjustments || []);
         setRestaurantData(rData);
-        setStatus("ready");
+
+        const localSeshRaw = localStorage.getItem("relish_session");
+        const localSesh = localSeshRaw ? JSON.parse(localSeshRaw) : {};
+
+        if (activeSession && localSesh?.sessionId !== activeSession.id) {
+          setExistingSessionData(activeSession);
+          setStatus("join_session");
+        } else {
+          initSession();
+          setStatus("ready");
+        }
       } catch (e) {
         console.error(e);
         setErrorMsg("Could not load menu. Please check your connection.");
@@ -271,6 +332,18 @@ function MenuPage() {
   ]);
 
   if (status === "landing") return <LandingPage />;
+
+  if (status === "join_session") {
+    return (
+      <JoinSessionPage
+        existingSessionData={existingSessionData}
+        onJoin={(id, otp) => {
+          joinExistingSession(id, otp);
+          setStatus("ready");
+        }}
+      />
+    );
+  }
 
   if (status === "loading") {
     return (
@@ -339,6 +412,8 @@ function MenuContent({
     grandTotal,
     placedOrders,
     otp,
+    restaurantId,
+    sessionId,
     tableNumber,
   } = useCart();
   const [vegOnly, setVegOnly] = useState(false);
@@ -347,6 +422,21 @@ function MenuContent({
   const [payBillOpen, setPayBillOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [adjustments, setAdjustments] = useState(null);
+  const [callingWaiter, setCallingWaiter] = useState(false);
+
+  const handleCallWaiter = async () => {
+    if (!restaurantId || !tableNumber || !sessionId) return;
+    setCallingWaiter(true);
+    try {
+      await sessionService.createWaiterCall(restaurantId, tableNumber, sessionId);
+      alert("Wait staff has been notified.");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to call waiter. Please try again.");
+    } finally {
+      setTimeout(() => setCallingWaiter(false), 5000);
+    }
+  };
 
   // Pre-filter valid offers that actually have menu items attached to prevent dead-space UI bugs
   const validOffers = (offersData || []).filter((offer) =>
@@ -662,7 +752,7 @@ function MenuContent({
         addonsData.length > 0 && (
           <div className="relative z-10 mt-2 border-[#f4f3ef] pt-8">
             <div className="px-5 flex items-end justify-between mb-4">
-              <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
+               <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
                 Extra Add-ons
               </h2>
             </div>
@@ -679,6 +769,18 @@ function MenuContent({
             </div>
           </div>
         )}
+
+      {/* Call Waiter Floating Button */}
+      {sessionId && (
+        <button
+          onClick={handleCallWaiter}
+          disabled={callingWaiter}
+          className="fixed bottom-[90px] right-5 z-30 bg-white border border-[#059669] text-[#059669] shadow-[0_4px_12px_rgba(5,150,105,0.2)] rounded-full px-4 py-2.5 flex items-center gap-2 font-bold text-[13px] active:scale-95 transition-transform disabled:opacity-50"
+        >
+          <span className="text-lg">🛎️</span>
+          {callingWaiter ? "Notified" : "Waiter"}
+        </button>
+      )}
 
       {/* State 1 – fresh cart, no prior orders */}
       {hasNewItems && !hasPreviousOrders && (
@@ -754,7 +856,7 @@ function MenuContent({
             onClick={() => setViewOrderOpen(true)}
             className="flex-1 border border-[#059669] text-[#059669] font-semibold text-sm rounded-[10px] px-4 py-2.5 active:scale-95 transition-transform"
           >
-            View My Order
+            View Table Orders
           </button>
           <button
             onClick={() => setPayBillOpen(true)}

@@ -122,6 +122,44 @@ export const menuService = {
  *   { items, subtotal, tax, grandTotal, createdAt }
  */
 export const sessionService = {
+  async getActiveSessionForTable(restaurantId, tableNumber) {
+    if (!restaurantId || !tableNumber) return null;
+    try {
+      const sessionsCol = collection(db, `restaurants/${restaurantId}/sessions`);
+      const q = query(
+        sessionsCol,
+        where("tableNumber", "==", tableNumber),
+        where("isActive", "==", true),
+        where("status", "==", "OPEN")
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        return { id: doc.id, ...doc.data() };
+      }
+      return null;
+    } catch (e) {
+      console.error("Error fetching active session:", e);
+      return null;
+    }
+  },
+
+  async createWaiterCall(restaurantId, tableNumber, sessionId) {
+    if (!restaurantId || !tableNumber || !sessionId) return;
+    try {
+      const notificationsCol = collection(db, `restaurants/${restaurantId}/notifications`);
+      await addDoc(notificationsCol, {
+        type: "WAITER_CALL",
+        tableNumber,
+        sessionId,
+        status: "pending",
+        createdAt: serverTimestamp()
+      });
+    } catch(e) {
+      console.error("Error creating waiter call:", e);
+    }
+  },
+
   async placeOrder(restaurantId, sessionId, sessionMeta, orderData) {
     if (!restaurantId || !sessionId)
       throw new Error("restaurantId and sessionId are required");
@@ -132,14 +170,27 @@ export const sessionService = {
     );
     const sessionSnap = await getDoc(sessionRef);
 
+    // Determine current order round number
+    const ordersCol = collection(
+      db,
+      `restaurants/${restaurantId}/sessions/${sessionId}/orders`,
+    );
+    const ordersSnap = await getDocs(ordersCol);
+    const roundNumber = ordersSnap.size + 1;
+
+    let participants = [];
+
     if (!sessionSnap.exists()) {
       // First order of this session — create the session document
+      participants = [{ name: sessionMeta.customerName, orders: [] }];
       await setDoc(sessionRef, {
         restaurantId,
         tableNumber: sessionMeta.tableNumber,
         otp: sessionMeta.otp,
         customerName: sessionMeta.customerName,
         customerPhone: sessionMeta.customerPhone,
+        numberOfPeople: sessionMeta.numberOfPeople || "1",
+        participants: participants,
         status: "OPEN",
         /**
          * verified flag — PER TABLE VERIFICATION
@@ -150,6 +201,9 @@ export const sessionService = {
         isActive: true,
         createdAt: serverTimestamp(),
       });
+    } else {
+      const data = sessionSnap.data();
+      participants = data.participants || [];
     }
 
     const sessionData = sessionSnap.exists()
@@ -158,16 +212,25 @@ export const sessionService = {
     const isVerified = sessionData.verified || false;
 
     // Append a new order to the orders sub-collection
-    const ordersCol = collection(
-      db,
-      `restaurants/${restaurantId}/sessions/${sessionId}/orders`,
-    );
     const orderRef = await addDoc(ordersCol, {
       ...orderData,
       status: "OPEN",
       verified: isVerified,
+      orderedBy: sessionMeta.customerName,
+      roundNumber: roundNumber,
       createdAt: serverTimestamp(),
     });
+
+    // Update participants array with the newly created order ID
+    const participantIndex = participants.findIndex(p => p.name === sessionMeta.customerName);
+    if (participantIndex >= 0) {
+      participants[participantIndex].orders.push(orderRef.id);
+    } else {
+      participants.push({ name: sessionMeta.customerName, orders: [orderRef.id] });
+    }
+
+    // Always update the participants string in session to maintain mapping
+    await updateDoc(sessionRef, { participants });
 
     // Also sync to the global orders collection for the admin POS to see
     const globalOrdersCol = collection(
@@ -180,9 +243,11 @@ export const sessionService = {
       sessionId: sessionId,
       otp: sessionMeta.otp,
       customerName: sessionMeta.customerName,
-      customerPhone: sessionMeta.customerPhone,
+      customerPhone: sessionMeta.customerPhone || sessionData.customerPhone || "",
       status: "OPEN",
       verified: isVerified,
+      orderedBy: sessionMeta.customerName,
+      roundNumber: roundNumber,
       createdAt: serverTimestamp(),
       source: "client", // To distinguish from POS-created orders
     });
