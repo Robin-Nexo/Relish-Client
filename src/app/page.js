@@ -287,7 +287,7 @@ function MenuPage() {
             price: addon.price,
             description: addon.description,
             category: "Add-ons",
-            isVeg: true,
+            isVeg: addon.isVeg !== undefined ? addon.isVeg : true,
             status: "active",
             isStandaloneAddon: true,
             _parentAddonId: addon.id,
@@ -441,7 +441,7 @@ function MenuContent({
   // Pre-filter valid offers that actually have menu items attached to prevent dead-space UI bugs
   const validOffers = (offersData || []).filter((offer) =>
     menuItems.some(
-      (i) => i._offer && i._offer.id === offer.id && i.status !== "inactive",
+      (i) => i._offer && i._offer.id === offer.id && i.status !== "inactive" && (!vegOnly || i.isVeg === true || i.isVeg === "true"),
     ),
   );
 
@@ -464,10 +464,31 @@ function MenuContent({
     );
   }
 
-  if (searchQuery.trim() !== "") {
-    filteredItems = filteredItems.filter((i) =>
-      i.name.toLowerCase().includes(searchQuery.toLowerCase().trim()),
+  let filteredAddons = addonsData || [];
+  if (vegOnly) {
+    filteredAddons = filteredAddons.filter(
+      (a) => a.isVeg === true || a.isVeg === "true",
     );
+  }
+
+  if (searchQuery.trim() !== "") {
+    const q = searchQuery.toLowerCase().trim();
+    
+    // Filter main items by item name, offer name, or category
+    filteredItems = filteredItems.filter((i) => {
+      const matchName = i.name?.toLowerCase().includes(q);
+      const matchOffer = i._offer?.name?.toLowerCase().includes(q);
+      const matchCategory = i.category?.toLowerCase().includes(q);
+      return matchName || matchOffer || matchCategory;
+    });
+
+    // Filter add-ons by name or category
+    const matchAddons = filteredAddons.filter((a) =>
+      a.name?.toLowerCase().includes(q) || a.category?.toLowerCase().includes(q)
+    );
+
+    // Combine for unified Search Results
+    filteredItems = [...filteredItems, ...matchAddons];
   }
 
   const hasNewItems = itemCount > 0;
@@ -616,11 +637,31 @@ function MenuContent({
           </div>
           <input
             type="text"
-            className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl text-[15px] font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/10 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all"
+            className="w-full pl-11 pr-11 py-3.5 bg-white border border-gray-200 rounded-2xl text-[15px] font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#059669] focus:ring-4 focus:ring-[#059669]/10 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all"
             placeholder="Search dishes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
@@ -632,12 +673,17 @@ function MenuContent({
             <hr className="border-t-[6px] border-[#f4f3ef]" />
             <div className="py-8 flex flex-col gap-8">
               {validOffers.map((offer) => {
-                const offerItems = menuItems.filter(
+                let offerItems = menuItems.filter(
                   (i) =>
                     i._offer &&
                     i._offer.id === offer.id &&
                     i.status !== "inactive",
                 );
+                if (vegOnly) {
+                  offerItems = offerItems.filter(
+                    (i) => i.isVeg === true || i.isVeg === "true",
+                  );
+                }
                 if (offerItems.length === 0) return null;
 
                 return (
@@ -748,8 +794,7 @@ function MenuContent({
       {/* Standalone Add-ons Section */}
       {searchQuery.trim() === "" &&
         activeCategory === "ALL" &&
-        addonsData &&
-        addonsData.length > 0 && (
+        filteredAddons.length > 0 && (
           <div className="relative z-10 mt-2 border-[#f4f3ef] pt-8">
             <div className="px-5 flex items-end justify-between mb-4">
                <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
@@ -758,7 +803,7 @@ function MenuContent({
             </div>
             <div className="px-5 pb-8">
               <div className="grid grid-cols-2 gap-3">
-                {addonsData.map((addon) => (
+                {filteredAddons.map((addon) => (
                   <MenuCard
                     key={addon.id}
                     item={addon}
