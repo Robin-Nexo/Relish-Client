@@ -46,7 +46,7 @@ function saveSession(data) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(data));
-  } catch {}
+  } catch { }
 }
 
 function clearSession() {
@@ -85,7 +85,7 @@ export function CartProvider({ children }) {
       if (saved) {
         if (saved.sessionId) setSessionId(saved.sessionId);
         if (saved.otp) setOtp(saved.otp);
-        if (saved.placedOrders) setPlacedOrders(saved.placedOrders);
+        // Don't restore placedOrders from localStorage - let Firestore realtime listener handle it
         if (saved.customerInfo) setCustomerInfo(saved.customerInfo);
         if (saved.joinedSession !== undefined)
           setJoinedSession(saved.joinedSession);
@@ -99,8 +99,9 @@ export function CartProvider({ children }) {
   // ── Persist session data whenever it changes ───────────────────────────────
   useEffect(() => {
     if (!sessionId && !otp) return; // nothing to save yet
-    saveSession({ sessionId, otp, placedOrders, customerInfo, joinedSession });
-  }, [sessionId, otp, placedOrders, customerInfo, joinedSession]);
+    // Don't persist placedOrders - let Firestore realtime listener be the source of truth
+    saveSession({ sessionId, otp, customerInfo, joinedSession });
+  }, [sessionId, otp, customerInfo, joinedSession]);
 
   // ── Initialise or reuse session identity when restaurant is set ───────────
   const initSession = useCallback(() => {
@@ -145,15 +146,15 @@ export function CartProvider({ children }) {
         return prev.map(i => i.cartItemId === cartItemId ? { ...i, quantity: i.quantity + qty } : i);
       } else {
         const base = finalBasePrice !== null ? finalBasePrice : (variantInfo ? variantInfo.price : (item._discountedPrice ?? item.price));
-        return [...prev, { 
-          ...item, 
-          cartItemId, 
+        return [...prev, {
+          ...item,
+          cartItemId,
           variantName: variantInfo?.name || null,
-          price: base, 
+          price: base,
           selectedAddons,
           name: variantInfo ? `${item.name} (${variantInfo.name})` : item.name,
           baseName: item.name,
-          quantity: qty 
+          quantity: qty
         }];
       }
     });

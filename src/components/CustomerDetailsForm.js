@@ -2,12 +2,12 @@
 import { useState } from "react";
 import Toast from "./Toast";
 
-export default function CustomerDetailsForm({ onSubmit, isJoined }) {
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [numberOfPeople, setNumberOfPeople] = useState("1");
+export default function CustomerDetailsForm({ onSubmit, isJoined, initialData }) {
+  const [firstName, setFirstName] = useState(initialData?.firstName || "");
+  const [lastName, setLastName] = useState(initialData?.lastName || "");
+  const [phone, setPhone] = useState(initialData?.phone || "");
+  const [email, setEmail] = useState(initialData?.email || "");
+  const [numberOfPeople, setNumberOfPeople] = useState(initialData?.numberOfPeople || "1");
   const [localToast, setLocalToast] = useState("");
 
   const handleSubmit = () => {

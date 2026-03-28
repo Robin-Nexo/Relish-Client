@@ -20,7 +20,6 @@ export default function CartModal({ onClose, adjustments }) {
     otp,
     initSession,
     placedOrders,
-    addPlacedOrder,
     customerInfo,
     setCustomerInfo,
     joinedSession,
@@ -49,9 +48,8 @@ export default function CartModal({ onClose, adjustments }) {
   );
 
   const deviceName = customerInfo
-    ? `${customerInfo.firstName}${
-        customerInfo.lastName ? " " + customerInfo.lastName : ""
-      }`
+    ? `${customerInfo.firstName}${customerInfo.lastName ? " " + customerInfo.lastName : ""
+    }`
     : "";
   const hasPlacedByDevice = deviceName
     ? placedOrders.some((o) => o.orderedBy === deviceName)
@@ -61,6 +59,20 @@ export default function CartModal({ onClose, adjustments }) {
   const handleDetailsSubmit = (info) => {
     setCustomerInfo(info);
     setStep("review");
+  };
+
+  const handleBackFromReview = () => {
+    // If user has already placed orders, go back to menu
+    // Otherwise, go back to details form to edit
+    if (hasPlacedByDevice) {
+      onClose();
+    } else {
+      setStep("details");
+    }
+  };
+
+  const handleGoToMenu = () => {
+    onClose();
   };
 
   const handlePlaceOrder = async () => {
@@ -105,13 +117,7 @@ export default function CartModal({ onClose, adjustments }) {
         orderPayload,
       );
 
-      // Record this batch locally
-      addPlacedOrder({
-        ...orderPayload,
-        orderId,
-        orderedBy: sessionMeta.customerName,
-        placedAt: new Date().toISOString(),
-      });
+      // Don't manually add to placedOrders - Firestore realtime listener will handle it
       clearCart();
 
       // Navigate to feedback
@@ -139,11 +145,7 @@ export default function CartModal({ onClose, adjustments }) {
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white z-10 shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={() =>
-              step === "review" && !hasPlacedByDevice
-                ? setStep("details")
-                : onClose()
-            }
+            onClick={step === "review" ? handleBackFromReview : onClose}
             className="text-gray-800 active:scale-95 transition-transform"
           >
             <svg
@@ -196,7 +198,11 @@ export default function CartModal({ onClose, adjustments }) {
         {/* Customer Details */}
         {step === "details" && (
           <div className="p-5">
-            <CustomerDetailsForm onSubmit={handleDetailsSubmit} isJoined={joinedSession} />
+            <CustomerDetailsForm
+              onSubmit={handleDetailsSubmit}
+              isJoined={joinedSession}
+              initialData={customerInfo}
+            />
           </div>
         )}
 
@@ -216,25 +222,32 @@ export default function CartModal({ onClose, adjustments }) {
                       key={order.id || oi}
                       className="bg-gray-50 border border-gray-100 rounded-2xl p-3"
                     >
-                      <p className="text-[12px] font-bold text-gray-500 mb-2">
+                      <p className="text-[12px] font-bold text-gray-500 mb-3">
                         Round {order.roundNumber ?? oi + 1}
                         {order.orderedBy ? ` - ${order.orderedBy}` : ""}
                       </p>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {order.items.map((item, ii) => (
                           <div
                             key={`${order.id || oi}-${ii}`}
-                            className="flex items-center justify-between text-sm text-gray-600"
+                            className="flex items-start justify-between gap-3"
                           >
-                            <span>
-                              {item.name} × {item.quantity}
-                            </span>
-                            <span>
-                              ₹{" "}
-                              {(item.price * item.quantity).toLocaleString(
-                                "en-IN",
-                              )}
-                            </span>
+                            <div className="flex-1">
+                              <p className="text-[13px] font-semibold text-gray-700 leading-tight mb-0.5">
+                                {item.name}
+                              </p>
+                              <p className="text-[11px] text-gray-500">
+                                ₹ {item.price.toLocaleString("en-IN")} × {item.quantity}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[13px] font-bold text-gray-800">
+                                ₹{" "}
+                                {(item.price * item.quantity).toLocaleString(
+                                  "en-IN",
+                                )}
+                              </p>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -308,13 +321,24 @@ export default function CartModal({ onClose, adjustments }) {
               ₹{" "}
               {adjustments
                 ? adjustments.adjustedTotal.toLocaleString("en-IN", {
-                    minimumFractionDigits: 0,
-                  })
+                  minimumFractionDigits: 0,
+                })
                 : grandTotal.toLocaleString("en-IN", {
-                    minimumFractionDigits: 0,
-                  })}
+                  minimumFractionDigits: 0,
+                })}
             </span>
           </div>
+
+          {/* Go to Menu button - only show if user hasn't placed order yet */}
+          {!hasPlacedByDevice && (
+            <button
+              onClick={handleGoToMenu}
+              className="w-full border-2 border-[#059669] text-[#059669] font-semibold text-[15px] py-3.5 rounded-xl active:scale-95 transition-transform mb-3"
+            >
+              ← Go to Menu
+            </button>
+          )}
+
           <button
             onClick={handlePlaceOrder}
             disabled={cartItems.length === 0}
