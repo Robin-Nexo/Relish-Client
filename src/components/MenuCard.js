@@ -18,8 +18,8 @@ export default function MenuCard({ item, onClick }) {
       {/* Top-right indicator: tick if in cart, plus if not */}
       <div
         className={`absolute top-0 right-0 z-10 w-6 h-6 rounded-tr-[18px] rounded-bl-xl flex items-center justify-center transition-colors ${quantity > 0
-            ? "bg-[#059669] text-white"
-            : "bg-white border border-[#059669] text-[#059669]"
+          ? "bg-[#059669] text-white"
+          : "bg-white border border-[#059669] text-[#059669]"
           }`}
       >
         {quantity > 0 ? (
@@ -54,9 +54,9 @@ export default function MenuCard({ item, onClick }) {
 
       {/* Image */}
       <div className="relative w-full aspect-square rounded-xl bg-[#f5f3ee] overflow-hidden">
-        {item.url || item.image ? (
+        {item.imageUrl || item.url || item.image ? (
           <Image
-            src={item.url || item.image}
+            src={item.imageUrl || item.url || item.image}
             alt={item.name}
             fill
             className="object-cover"

@@ -4,7 +4,7 @@ import Image from 'next/image';
 
 export default function CartItem({ item }) {
   const { addToCart, removeFromCart } = useCart();
-  
+
   const handleRemoveAll = () => {
     removeFromCart(item, item.variantName ? { name: item.variantName } : null, item.quantity);
   };
@@ -13,9 +13,9 @@ export default function CartItem({ item }) {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] p-2.5 flex items-stretch gap-3">
       {/* Item Image */}
       <div className="relative w-18 h-18 rounded-xl bg-[#f5f3ee] overflow-hidden shrink-0">
-        {item.url || item.image ? (
+        {item.imageUrl || item.url || item.image ? (
           <Image
-            src={item.url || item.image}
+            src={item.imageUrl || item.url || item.image}
             alt={item.name}
             fill
             className="object-cover"
@@ -34,7 +34,7 @@ export default function CartItem({ item }) {
 
         <div className="flex items-center justify-between mt-auto pt-2">
           {/* Trash Icon */}
-          <button 
+          <button
             onClick={handleRemoveAll}
             className="text-red-500 p-1 -ml-1 hover:bg-red-50 rounded active:scale-95 transition-transform"
           >
@@ -50,7 +50,7 @@ export default function CartItem({ item }) {
               onClick={() => removeFromCart(item, item.variantName ? { name: item.variantName } : null)}
               className="text-gray-600 font-bold w-5 h-5 flex items-center justify-center active:scale-95"
             >
-              <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor"><rect width="10" height="2" rx="1"/></svg>
+              <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor"><rect width="10" height="2" rx="1" /></svg>
             </button>
             <span className="text-gray-800 font-bold text-[13px] min-w-3 text-center">
               {item.quantity}

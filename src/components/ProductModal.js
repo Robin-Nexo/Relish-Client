@@ -24,8 +24,8 @@ function VegBadge({ isVeg }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${veg
-          ? "bg-green-50 text-green-700 border border-green-200"
-          : "bg-red-50 text-red-600 border border-red-200"
+        ? "bg-green-50 text-green-700 border border-green-200"
+        : "bg-red-50 text-red-600 border border-red-200"
         }`}
     >
       <span className={`w-2 h-2 rounded-full ${veg ? "bg-green-500" : "bg-red-500"}`} />
@@ -105,9 +105,9 @@ export default function ProductModal({ item, onClose }) {
       >
         {/* ── Image — drag handle lives inside here ── */}
         <div className="relative w-full shrink-0" style={{ height: 220 }}>
-          {item.url || item.image ? (
+          {item.imageUrl || item.url || item.image ? (
             <Image
-              src={item.url || item.image}
+              src={item.imageUrl || item.url || item.image}
               alt={item.name}
               fill
               className="object-cover"
@@ -237,8 +237,8 @@ export default function ProductModal({ item, onClose }) {
                       key={size.name}
                       onClick={() => setSelectedSize(size)}
                       className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl border-2 transition-all active:scale-95 ${isSelected
-                          ? "border-[#059669] bg-[#059669] shadow-[0_3px_10px_rgba(5,150,105,0.2)]"
-                          : "border-gray-200 bg-gray-50"
+                        ? "border-[#059669] bg-[#059669] shadow-[0_3px_10px_rgba(5,150,105,0.2)]"
+                        : "border-gray-200 bg-gray-50"
                         }`}
                     >
                       {sizeQty > 0 && (
@@ -294,14 +294,14 @@ export default function ProductModal({ item, onClose }) {
                         key={addon.id}
                         onClick={() => handleToggleAddon(addon)}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${isSelected
-                            ? "border-[#059669] bg-[#f0faf5]"
-                            : "border-gray-200 bg-white"
+                          ? "border-[#059669] bg-[#f0faf5]"
+                          : "border-gray-200 bg-white"
                           }`}
                       >
                         <div
                           className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected
-                              ? "border-[#059669] bg-[#059669]"
-                              : "border-gray-300 bg-white"
+                            ? "border-[#059669] bg-[#059669]"
+                            : "border-gray-300 bg-white"
                             }`}
                         >
                           {isSelected && (
