@@ -415,6 +415,9 @@ function MenuContent({
     restaurantId,
     sessionId,
     tableNumber,
+    sessionCompleted,
+    completedBillAmount,
+    resetAfterThankYou,
   } = useCart();
   const [vegOnly, setVegOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -509,6 +512,48 @@ function MenuContent({
       setAdjustments(adjustmentResult);
     }
   }, [grandTotal, adjustmentsData]);
+
+  // ── Thank You Screen ─────────────────────────────────────────────────────
+  if (sessionCompleted) {
+    return (
+      <div className="max-w-md mx-auto min-h-svh flex flex-col items-center justify-center bg-[#fffdfa] px-6 text-center">
+        {/* Success circle */}
+        <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-100">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+
+        <h2 className="text-[28px] font-black text-gray-900 tracking-tight leading-tight mb-2">
+          Thank You!
+        </h2>
+        <p className="text-[15px] text-gray-500 leading-relaxed max-w-[280px] mx-auto mb-8">
+          Your payment has been received. We hope you enjoyed your meal!
+        </p>
+
+        {/* Bill amount card */}
+        {completedBillAmount > 0 && (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-6 py-4 mb-8 w-full max-w-[260px]">
+            <p className="text-xs font-semibold text-emerald-600 mb-1">Bill Paid</p>
+            <p className="text-2xl font-black text-emerald-800">
+              ₹ {completedBillAmount.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+            </p>
+          </div>
+        )}
+
+        <button
+          onClick={resetAfterThankYou}
+          className="w-full max-w-[260px] bg-[#059669] text-white font-semibold text-[15px] py-3.5 rounded-xl active:scale-95 transition-transform shadow-lg shadow-emerald-200"
+        >
+          Done
+        </button>
+
+        <p className="mt-6 text-[11px] text-gray-400 font-medium">
+          Powered by <span className="text-[#059669] font-bold">Relish</span>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto min-h-svh relative pb-28 bg-[#fffdfa] bg-food-pattern bg-repeat">

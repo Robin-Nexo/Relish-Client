@@ -341,6 +341,20 @@ export const sessionService = {
         "Could not update table payment status directly. The POS will still detect bill request from the order status.",
       );
     }
+
+    // Create a notification for waiter/POS apps so they get a real-time toast
+    try {
+      const notificationsCol = collection(db, `restaurants/${restaurantId}/notifications`);
+      await addDoc(notificationsCol, {
+        type: "BILL_REQUEST",
+        tableNumber,
+        sessionId,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn("Could not create bill request notification:", e);
+    }
   },
 
   async paySessionBill(restaurantId, sessionId) {

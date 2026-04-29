@@ -75,6 +75,10 @@ export function CartProvider({ children }) {
   // Track if this device joined an existing session
   const [joinedSession, setJoinedSession] = useState(false);
 
+  // Track when session has been completed by admin (show Thank You screen)
+  const [sessionCompleted, setSessionCompleted] = useState(false);
+  const [completedBillAmount, setCompletedBillAmount] = useState(0);
+
   // ── Restore session from localStorage on first mount ──────────────────────
   const [isSessionLoaded, setIsSessionLoaded] = useState(false);
 
@@ -204,6 +208,15 @@ export function CartProvider({ children }) {
     clearSession();
   }, [clearCart]);
 
+  /**
+   * Reset after the Thank You screen is dismissed.
+   */
+  const resetAfterThankYou = useCallback(() => {
+    setSessionCompleted(false);
+    setCompletedBillAmount(0);
+    endSession();
+  }, [endSession]);
+
   // ── Listen for session completion from admin POS ───────────────────────────
   useEffect(() => {
     if (!restaurantId || !sessionId) return;
@@ -216,14 +229,19 @@ export function CartProvider({ children }) {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.status === "CLOSED") {
-          // Admin has completed the order
-          endSession();
+          // Compute the bill total from placed orders before clearing
+          const billTotal = placedOrders.reduce(
+            (acc, o) => acc + (o.grandTotal || 0),
+            0,
+          );
+          setCompletedBillAmount(billTotal);
+          setSessionCompleted(true);
         }
       }
     });
 
     return () => unsubscribe();
-  }, [restaurantId, sessionId, endSession]);
+  }, [restaurantId, sessionId, placedOrders]);
 
   // ── Realtime orders for this session (combined across devices) ─────────
   useEffect(() => {
@@ -307,6 +325,10 @@ export function CartProvider({ children }) {
         setCustomerInfo,
         // end
         endSession,
+        // session completed (Thank You screen)
+        sessionCompleted,
+        completedBillAmount,
+        resetAfterThankYou,
       }}
     >
       {children}
