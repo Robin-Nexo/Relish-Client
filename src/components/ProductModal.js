@@ -1,7 +1,7 @@
 "use client";
 import { useCart } from "@/context/CartContext";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function buildSizes(item) {
   if (item.variants && item.variants.length > 0) {
@@ -47,9 +47,15 @@ export default function ProductModal({ item, onClose }) {
   const [selectedSize, setSelectedSize] = useState(sizes[0]);
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [mounted, setMounted] = useState(false);
+  const closeTimeoutRef = useRef(null);
 
   useEffect(() => {
     requestAnimationFrame(() => setMounted(true));
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
   }, []);
 
   const discountedBase = hasVariants
@@ -89,7 +95,9 @@ export default function ProductModal({ item, onClose }) {
 
   const handleClose = () => {
     setMounted(false);
-    setTimeout(onClose, 260);
+    closeTimeoutRef.current = setTimeout(() => {
+      if (onClose) onClose();
+    }, 260);
   };
 
   const offerLabel = item._offer

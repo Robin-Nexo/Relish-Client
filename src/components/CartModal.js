@@ -48,8 +48,9 @@ export default function CartModal({ onClose, adjustments }) {
   );
 
   const deviceName = customerInfo
-    ? `${customerInfo.firstName}${customerInfo.lastName ? " " + customerInfo.lastName : ""
-    }`
+    ? `${customerInfo.firstName}${
+        customerInfo.lastName ? " " + customerInfo.lastName : ""
+      }`
     : "";
   const hasPlacedByDevice = deviceName
     ? placedOrders.some((o) => o.orderedBy === deviceName)
@@ -237,7 +238,8 @@ export default function CartModal({ onClose, adjustments }) {
                                 {item.name}
                               </p>
                               <p className="text-[11px] text-gray-500">
-                                ₹ {item.price.toLocaleString("en-IN")} × {item.quantity}
+                                ₹ {item.price.toLocaleString("en-IN")} ×{" "}
+                                {item.quantity}
                               </p>
                             </div>
                             <div className="text-right">
@@ -321,11 +323,11 @@ export default function CartModal({ onClose, adjustments }) {
               ₹{" "}
               {adjustments
                 ? adjustments.adjustedTotal.toLocaleString("en-IN", {
-                  minimumFractionDigits: 0,
-                })
+                    minimumFractionDigits: 0,
+                  })
                 : grandTotal.toLocaleString("en-IN", {
-                  minimumFractionDigits: 0,
-                })}
+                    minimumFractionDigits: 0,
+                  })}
             </span>
           </div>
 

@@ -9,14 +9,14 @@ import ViewOrderModal from "@/components/ViewOrderModal";
 import { useCart } from "@/context/CartContext";
 import { calculateAdjustments } from "@/libs/adjustments";
 import {
-    addonsService,
-    adjustmentsService,
-    categoriesService,
-    menuService,
-    offersService,
-    restaurantService,
-    sessionService,
-    tablesService,
+  addonsService,
+  adjustmentsService,
+  categoriesService,
+  menuService,
+  offersService,
+  restaurantService,
+  sessionService,
+  tablesService,
 } from "@/libs/firestore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -135,7 +135,8 @@ function JoinSessionPage({ existingSessionData, onJoin }) {
       </div>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Join Table</h2>
       <p className="text-[14px] text-gray-500 mb-8 leading-relaxed max-w-[260px] mx-auto">
-        An active session already exists for this table. Ask your table for the 4-digit OTP to join them.
+        An active session already exists for this table. Ask your table for the
+        4-digit OTP to join them.
       </p>
 
       <div className="w-full max-w-xs space-y-4">
@@ -170,8 +171,13 @@ function MenuPage() {
   const rawId = searchParams.get("restaurantId");
   const rawTable = searchParams.get("tableno");
 
-  const { setMenuItems, setRestaurantId, setTableNumber, initSession, joinExistingSession } =
-    useCart();
+  const {
+    setMenuItems,
+    setRestaurantId,
+    setTableNumber,
+    initSession,
+    joinExistingSession,
+  } = useCart();
 
   // Derive the initial status from URL params — avoids calling setState inside an effect
   const [status, setStatus] = useState(() =>
@@ -431,7 +437,11 @@ function MenuContent({
     if (!restaurantId || !tableNumber || !sessionId) return;
     setCallingWaiter(true);
     try {
-      await sessionService.createWaiterCall(restaurantId, tableNumber, sessionId);
+      await sessionService.createWaiterCall(
+        restaurantId,
+        tableNumber,
+        sessionId,
+      );
       alert("Wait staff has been notified.");
     } catch (e) {
       console.error(e);
@@ -444,7 +454,11 @@ function MenuContent({
   // Pre-filter valid offers that actually have menu items attached to prevent dead-space UI bugs
   const validOffers = (offersData || []).filter((offer) =>
     menuItems.some(
-      (i) => i._offer && i._offer.id === offer.id && i.status !== "inactive" && (!vegOnly || i.isVeg === true || i.isVeg === "true"),
+      (i) =>
+        i._offer &&
+        i._offer.id === offer.id &&
+        i.status !== "inactive" &&
+        (!vegOnly || i.isVeg === true || i.isVeg === "true"),
     ),
   );
 
@@ -476,7 +490,7 @@ function MenuContent({
 
   if (searchQuery.trim() !== "") {
     const q = searchQuery.toLowerCase().trim();
-    
+
     // Filter main items by item name, offer name, or category
     filteredItems = filteredItems.filter((i) => {
       const matchName = i.name?.toLowerCase().includes(q);
@@ -486,8 +500,10 @@ function MenuContent({
     });
 
     // Filter add-ons by name or category
-    const matchAddons = filteredAddons.filter((a) =>
-      a.name?.toLowerCase().includes(q) || a.category?.toLowerCase().includes(q)
+    const matchAddons = filteredAddons.filter(
+      (a) =>
+        a.name?.toLowerCase().includes(q) ||
+        a.category?.toLowerCase().includes(q),
     );
 
     // Combine for unified Search Results
@@ -519,7 +535,16 @@ function MenuContent({
       <div className="max-w-md mx-auto min-h-svh flex flex-col items-center justify-center bg-[#fffdfa] px-6 text-center">
         {/* Success circle */}
         <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-emerald-100">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#059669"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
@@ -534,9 +559,14 @@ function MenuContent({
         {/* Bill amount card */}
         {completedBillAmount > 0 && (
           <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-6 py-4 mb-8 w-full max-w-[260px]">
-            <p className="text-xs font-semibold text-emerald-600 mb-1">Bill Paid</p>
+            <p className="text-xs font-semibold text-emerald-600 mb-1">
+              Bill Paid
+            </p>
             <p className="text-2xl font-black text-emerald-800">
-              ₹ {completedBillAmount.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+              ₹{" "}
+              {completedBillAmount.toLocaleString("en-IN", {
+                minimumFractionDigits: 0,
+              })}
             </p>
           </div>
         )}
@@ -842,7 +872,7 @@ function MenuContent({
         filteredAddons.length > 0 && (
           <div className="relative z-10 mt-2 border-[#f4f3ef] pt-8">
             <div className="px-5 flex items-end justify-between mb-4">
-               <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
+              <h2 className="text-[17px] text-gray-900 font-semibold  leading-none">
                 Extra Add-ons
               </h2>
             </div>
@@ -891,7 +921,10 @@ function MenuContent({
             </span>
           </div>
           <button
-            onClick={() => setCartOpen(true)}
+            onClick={() => {
+              setSelectedProduct(null);
+              setCartOpen(true);
+            }}
             className="bg-[#059669] text-white font-semibold text-sm rounded-[10px] px-5 py-2.5 flex items-center gap-2 active:scale-95 transition-transform"
           >
             View Order
@@ -931,7 +964,10 @@ function MenuContent({
             </span>
           </div>
           <button
-            onClick={() => setCartOpen(true)}
+            onClick={() => {
+              setSelectedProduct(null);
+              setCartOpen(true);
+            }}
             className="bg-[#059669] text-white font-semibold text-sm rounded-[10px] px-5 py-2.5 flex items-center gap-2 active:scale-95 transition-transform"
           >
             Add To My Order →
