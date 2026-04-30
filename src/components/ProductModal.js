@@ -23,12 +23,15 @@ function VegBadge({ isVeg }) {
   const veg = isVeg === true || isVeg === "true";
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${veg
-        ? "bg-green-50 text-green-700 border border-green-200"
-        : "bg-red-50 text-red-600 border border-red-200"
-        }`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide ${
+        veg
+          ? "bg-green-50 text-green-700 border border-green-200"
+          : "bg-red-50 text-red-600 border border-red-200"
+      }`}
     >
-      <span className={`w-2 h-2 rounded-full ${veg ? "bg-green-500" : "bg-red-500"}`} />
+      <span
+        className={`w-2 h-2 rounded-full ${veg ? "bg-green-500" : "bg-red-500"}`}
+      />
       {veg ? "Veg" : "Non-Veg"}
     </span>
   );
@@ -56,7 +59,10 @@ export default function ProductModal({ item, onClose }) {
   const addonsTotal = selectedAddons.reduce((s, a) => s + a.price, 0);
   const displayPrice = discountedBase + addonsTotal;
 
-  const addonKey = selectedAddons.map((a) => a.id).sort().join(",");
+  const addonKey = selectedAddons
+    .map((a) => a.id)
+    .sort()
+    .join(",");
   const variantKey = hasVariants ? selectedSize.name : "base";
   const cartItemId = `${item.id}-${variantKey}-${addonKey}`;
   const quantity = cart.find((c) => c.cartItemId === cartItemId)?.quantity ?? 0;
@@ -68,8 +74,15 @@ export default function ProductModal({ item, onClose }) {
         : [...prev, addon],
     );
 
-  const handleAdd = () =>
-    addToCart(item, hasVariants ? selectedSize : null, 1, selectedAddons, discountedBase);
+  const handleAdd = () => {
+    addToCart(
+      item,
+      hasVariants ? selectedSize : null,
+      1,
+      selectedAddons,
+      discountedBase,
+    );
+  };
 
   const handleRemove = () =>
     removeFromCart(item, hasVariants ? selectedSize : null, 1, selectedAddons);
@@ -123,7 +136,10 @@ export default function ProductModal({ item, onClose }) {
           )}
 
           {/* Subtle top-to-transparent gradient so handle is legible */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40" style={{ borderRadius: "24px 24px 0 0" }} />
+          <div
+            className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40"
+            style={{ borderRadius: "24px 24px 0 0" }}
+          />
 
           {/* ── Drag handle inside image, top-centre ── */}
           <div className="absolute top-3 left-0 right-0 flex justify-center pointer-events-none">
@@ -142,7 +158,15 @@ export default function ProductModal({ item, onClose }) {
             onClick={handleClose}
             className="absolute top-8 right-4 w-8 h-8 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-transform active:scale-90"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -171,13 +195,17 @@ export default function ProductModal({ item, onClose }) {
               <p className="text-[21px] font-bold text-[#059669] leading-none">
                 ₹{Math.round(displayPrice)}
               </p>
-              {item._offer && !hasVariants && item.price !== item._discountedPrice && (
-                <p className="text-[12px] text-gray-400 line-through mt-0.5">
-                  ₹{item.price}
-                </p>
-              )}
-              {hasVariants && item._offer &&
-                selectedSize.price !== applyOffer(selectedSize.price, item._offer) && (
+              {item._offer &&
+                !hasVariants &&
+                item.price !== item._discountedPrice && (
+                  <p className="text-[12px] text-gray-400 line-through mt-0.5">
+                    ₹{item.price}
+                  </p>
+                )}
+              {hasVariants &&
+                item._offer &&
+                selectedSize.price !==
+                  applyOffer(selectedSize.price, item._offer) && (
                   <p className="text-[12px] text-gray-400 line-through mt-0.5">
                     ₹{selectedSize.price}
                   </p>
@@ -196,7 +224,6 @@ export default function ProductModal({ item, onClose }) {
 
         {/* ── Scrollable body ── */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
-
           {/* Size / Variant selector */}
           <div className="px-5 py-4">
             <div className="flex items-center justify-between mb-3">
@@ -214,13 +241,25 @@ export default function ProductModal({ item, onClose }) {
               <div className="flex items-center justify-between bg-[#f8faf9] rounded-2xl px-4 py-3.5 border border-[#059669]/20">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 bg-[#059669]/10 rounded-lg flex items-center justify-center">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#059669"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
                       <circle cx="12" cy="12" r="10" />
                     </svg>
                   </div>
-                  <span className="text-[13px] font-medium text-gray-700">Standard</span>
+                  <span className="text-[13px] font-medium text-gray-700">
+                    Standard
+                  </span>
                 </div>
-                <span className="text-[15px] font-semibold text-[#059669]">₹{Math.round(discountedBase)}</span>
+                <span className="text-[15px] font-semibold text-[#059669]">
+                  ₹{Math.round(discountedBase)}
+                </span>
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
@@ -230,16 +269,19 @@ export default function ProductModal({ item, onClose }) {
                   const hasDiscount = sizeDiscounted < size.price;
 
                   const sizeCartId = `${item.id}-${size.name}-${addonKey}`;
-                  const sizeQty = cart.find((c) => c.cartItemId === sizeCartId)?.quantity ?? 0;
+                  const sizeQty =
+                    cart.find((c) => c.cartItemId === sizeCartId)?.quantity ??
+                    0;
 
                   return (
                     <button
                       key={size.name}
                       onClick={() => setSelectedSize(size)}
-                      className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl border-2 transition-all active:scale-95 ${isSelected
-                        ? "border-[#059669] bg-[#059669] shadow-[0_3px_10px_rgba(5,150,105,0.2)]"
-                        : "border-gray-200 bg-gray-50"
-                        }`}
+                      className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl border-2 transition-all active:scale-95 ${
+                        isSelected
+                          ? "border-[#059669] bg-[#059669] shadow-[0_3px_10px_rgba(5,150,105,0.2)]"
+                          : "border-gray-200 bg-gray-50"
+                      }`}
                     >
                       {sizeQty > 0 && (
                         <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] font-semibold rounded-full w-5 h-5 flex items-center justify-center shadow z-10">
@@ -248,19 +290,34 @@ export default function ProductModal({ item, onClose }) {
                       )}
                       {isSelected && (
                         <span className="absolute top-2 right-2 text-white/80">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <svg
+                            width="9"
+                            height="9"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         </span>
                       )}
-                      <span className={`text-[13px] font-medium mb-0.5 ${isSelected ? "text-white" : "text-gray-700"}`}>
+                      <span
+                        className={`text-[13px] font-medium mb-0.5 ${isSelected ? "text-white" : "text-gray-700"}`}
+                      >
                         {size.name}
                       </span>
-                      <span className={`text-[14px] font-semibold ${isSelected ? "text-white" : "text-[#059669]"}`}>
+                      <span
+                        className={`text-[14px] font-semibold ${isSelected ? "text-white" : "text-[#059669]"}`}
+                      >
                         ₹{Math.round(sizeDiscounted)}
                       </span>
                       {hasDiscount && (
-                        <span className={`text-[10px] line-through mt-0.5 ${isSelected ? "text-white/55" : "text-gray-400"}`}>
+                        <span
+                          className={`text-[10px] line-through mt-0.5 ${isSelected ? "text-white/55" : "text-gray-400"}`}
+                        >
                           ₹{size.price}
                         </span>
                       )}
@@ -278,8 +335,12 @@ export default function ProductModal({ item, onClose }) {
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-[13px] font-semibold text-gray-700">Add-ons</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">Customise your order</p>
+                    <p className="text-[13px] font-semibold text-gray-700">
+                      Add-ons
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Customise your order
+                    </p>
                   </div>
                   <span className="text-[10px] text-gray-400 font-semibold bg-gray-100 px-2.5 py-0.5 rounded-full uppercase tracking-wide">
                     Optional
@@ -288,24 +349,37 @@ export default function ProductModal({ item, onClose }) {
 
                 <div className="space-y-2">
                   {item._addonsConfig.map((addon) => {
-                    const isSelected = selectedAddons.some((a) => a.id === addon.id);
+                    const isSelected = selectedAddons.some(
+                      (a) => a.id === addon.id,
+                    );
                     return (
                       <button
                         key={addon.id}
                         onClick={() => handleToggleAddon(addon)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${isSelected
-                          ? "border-[#059669] bg-[#f0faf5]"
-                          : "border-gray-200 bg-white"
-                          }`}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-all active:scale-[0.98] text-left ${
+                          isSelected
+                            ? "border-[#059669] bg-[#f0faf5]"
+                            : "border-gray-200 bg-white"
+                        }`}
                       >
                         <div
-                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected
-                            ? "border-[#059669] bg-[#059669]"
-                            : "border-gray-300 bg-white"
-                            }`}
+                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? "border-[#059669] bg-[#059669]"
+                              : "border-gray-300 bg-white"
+                          }`}
                         >
                           {isSelected && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="white"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           )}
@@ -314,8 +388,11 @@ export default function ProductModal({ item, onClose }) {
                           {addon.name}
                         </span>
                         <span
-                          className={`text-[12px] font-semibold px-2.5 py-1 rounded-full ${isSelected ? "bg-[#059669] text-white" : "bg-gray-100 text-gray-600"
-                            }`}
+                          className={`text-[12px] font-semibold px-2.5 py-1 rounded-full ${
+                            isSelected
+                              ? "bg-[#059669] text-white"
+                              : "bg-gray-100 text-gray-600"
+                          }`}
                         >
                           +₹{addon.price}
                         </span>
@@ -327,7 +404,8 @@ export default function ProductModal({ item, onClose }) {
                 {selectedAddons.length > 0 && (
                   <div className="mt-3 flex items-center justify-between bg-[#f0faf5] rounded-xl px-3.5 py-2.5">
                     <span className="text-[12px] text-[#059669] font-medium">
-                      {selectedAddons.length} add-on{selectedAddons.length > 1 ? "s" : ""} selected
+                      {selectedAddons.length} add-on
+                      {selectedAddons.length > 1 ? "s" : ""} selected
                     </span>
                     <span className="text-[12px] text-[#059669] font-semibold">
                       +₹{addonsTotal}
@@ -343,20 +421,30 @@ export default function ProductModal({ item, onClose }) {
             <>
               <div className="h-px bg-gray-100 mx-5" />
               <div className="px-5 py-3 space-y-1.5">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Price Summary</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                  Price Summary
+                </p>
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-gray-500">{hasVariants ? selectedSize.name : "Base item"}</span>
-                  <span className="font-medium text-gray-700">₹{Math.round(discountedBase)}</span>
+                  <span className="text-gray-500">
+                    {hasVariants ? selectedSize.name : "Base item"}
+                  </span>
+                  <span className="font-medium text-gray-700">
+                    ₹{Math.round(discountedBase)}
+                  </span>
                 </div>
                 {selectedAddons.map((a) => (
                   <div key={a.id} className="flex justify-between text-[13px]">
                     <span className="text-gray-500">{a.name}</span>
-                    <span className="font-medium text-gray-700">+₹{a.price}</span>
+                    <span className="font-medium text-gray-700">
+                      +₹{a.price}
+                    </span>
                   </div>
                 ))}
                 <div className="flex justify-between text-[14px] font-semibold text-gray-900 pt-1.5 border-t border-dashed border-gray-200">
                   <span>Total</span>
-                  <span className="text-[#059669]">₹{Math.round(displayPrice)}</span>
+                  <span className="text-[#059669]">
+                    ₹{Math.round(displayPrice)}
+                  </span>
                 </div>
               </div>
             </>
@@ -373,7 +461,16 @@ export default function ProductModal({ item, onClose }) {
               className="w-full bg-[#059669] text-white font-semibold text-[15px] py-3.5 rounded-2xl active:scale-[0.97] transition-transform shadow-[0_4px_14px_rgba(5,150,105,0.25)] flex items-center justify-between px-5"
             >
               <span className="flex items-center gap-2">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
@@ -392,14 +489,28 @@ export default function ProductModal({ item, onClose }) {
                   className="w-12 h-12 flex items-center justify-center text-gray-600 active:bg-red-50 active:text-red-500 transition-colors"
                 >
                   {quantity === 1 ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6l-1 14H6L5 6" />
                       <path d="M10 11v6M14 11v6" />
                       <path d="M9 6V4h6v2" />
                     </svg>
                   ) : (
-                    <svg width="14" height="3" viewBox="0 0 16 3" fill="currentColor">
+                    <svg
+                      width="14"
+                      height="3"
+                      viewBox="0 0 16 3"
+                      fill="currentColor"
+                    >
                       <rect width="16" height="3" rx="1.5" />
                     </svg>
                   )}
@@ -413,7 +524,16 @@ export default function ProductModal({ item, onClose }) {
                   onClick={handleAdd}
                   className="w-12 h-12 flex items-center justify-center bg-[#059669] text-white active:bg-[#047857] transition-colors"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
@@ -421,8 +541,11 @@ export default function ProductModal({ item, onClose }) {
               </div>
 
               {/* Total */}
-              <div className="flex-1 bg-[#059669] rounded-2xl h-12 flex items-center justify-between px-4 shadow-[0_3px_10px_rgba(5,150,105,0.2)]">
-                <div className="flex flex-col">
+              <button
+                onClick={handleClose}
+                className="flex-1 bg-[#059669] rounded-2xl h-12 flex items-center justify-between px-4 shadow-[0_3px_10px_rgba(5,150,105,0.2)] active:scale-[0.97] transition-transform"
+              >
+                <div className="flex flex-col text-left">
                   <span className="text-white/65 text-[10px] font-medium leading-none">
                     {quantity} × ₹{Math.round(displayPrice)}
                   </span>
@@ -430,8 +553,10 @@ export default function ProductModal({ item, onClose }) {
                     ₹{Math.round(displayPrice * quantity)}
                   </span>
                 </div>
-                <span className="text-white/70 text-[11px] font-medium">in order</span>
-              </div>
+                <span className="text-white/70 text-[11px] font-medium">
+                  Done
+                </span>
+              </button>
             </div>
           )}
 
