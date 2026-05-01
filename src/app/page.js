@@ -314,9 +314,16 @@ function MenuPage() {
         const localSesh = localSeshRaw ? JSON.parse(localSeshRaw) : {};
 
         if (activeSession && localSesh?.sessionId !== activeSession.id) {
+          // Table has an active session but it's different from local (or no local)
           setExistingSessionData(activeSession);
           setStatus("join_session");
         } else {
+          // If the backend has NO active session, but we have a local session,
+          // it means the table was cleared. We MUST discard the local session.
+          if (!activeSession && localSesh?.sessionId) {
+            localStorage.removeItem("relish_session");
+          }
+          
           initSession();
           setStatus("ready");
         }

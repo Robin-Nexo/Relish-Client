@@ -214,7 +214,7 @@ export const sessionService = {
     // Append a new order to the orders sub-collection
     const orderRef = await addDoc(ordersCol, {
       ...orderData,
-      status: "OPEN",
+      status: isVerified ? "OPEN" : "pending_verification",
       verified: isVerified,
       orderedBy: sessionMeta.customerName,
       roundNumber: roundNumber,
@@ -244,12 +244,12 @@ export const sessionService = {
       otp: sessionMeta.otp,
       customerName: sessionMeta.customerName,
       customerPhone: sessionMeta.customerPhone || sessionData.customerPhone || "",
-      status: "OPEN",
+      status: isVerified ? "new" : "pending_verification",
       verified: isVerified,
       orderedBy: sessionMeta.customerName,
       roundNumber: roundNumber,
       createdAt: serverTimestamp(),
-      source: "client", // To distinguish from POS-created orders
+      source: "client",
     });
 
     // Update table status to occupied (fails gracefully if permissions are missing)
@@ -305,7 +305,6 @@ export const sessionService = {
       updatedAt: serverTimestamp(),
     });
 
-    // Signal admin POS via global orders as well
     const globalOrdersCol = collection(
       db,
       `restaurants/${restaurantId}/orders`,
@@ -313,14 +312,16 @@ export const sessionService = {
     const qOrders = query(
       globalOrdersCol,
       where("sessionId", "==", sessionId),
-      where("status", "==", "OPEN"),
     );
     const orderSnap = await getDocs(qOrders);
 
     if (!orderSnap.empty) {
       const batch = writeBatch(db);
       orderSnap.docs.forEach((doc) => {
-        batch.update(doc.ref, { status: "PAYMENT_PENDING" });
+        const s = doc.data().status;
+        if (s !== "completed" && s !== "PAYMENT_PENDING") {
+          batch.update(doc.ref, { status: "PAYMENT_PENDING" });
+        }
       });
       await batch.commit();
     }
